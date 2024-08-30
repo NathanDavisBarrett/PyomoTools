@@ -13,3 +13,10 @@ Key functions include:
 * **Formulations.PWL**: A function to automatically generate a Piecewise-Linear approximation of a general (non-linear) function
 * **IO.ModelToExcel**: A function to write the solution of a model to an easily readable excel file.
 * **IO.LoadModelSolutionFromExcel**: A function to load a solution from an excel file into a pyomo model.
+
+# Installation
+1. Download or clone this repository
+2. In your Python terminal, navigate to the repository you downloaded.
+3. Enter the command ```pip install .```
+4. PyomoTools and all dependencies should be automatically installed.
+5. To make sure everything was correctly installed, Enter the command ```pytest PyomoTools/```

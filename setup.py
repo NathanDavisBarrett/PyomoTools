@@ -10,6 +10,9 @@ setup(
         'pandas',
         'pwlf',
         'matplotlib',
-        'numpy'
+        'numpy',
+        'pytest',
+        'XlsxWriter',
+        'openpyxl'
       ]
 )
