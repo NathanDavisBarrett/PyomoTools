@@ -11,11 +11,11 @@ def DefaultSolver(problemType="MILP"):
     problemType: str (optional, Default)
         The problem type you would like the default solver for. Options are "LP", "MILP","QP","MIQP","MIQCP","NLP","MINLP"
     """
-    if problemType in ["MILP","QP","Convex MIQP","MIQCP"]:
+    if problemType in ["MILP","QP","MIQP","MIQCP"]:
         return pyo.SolverFactory("gurobi")
     elif problemType == "NLP":
         return pyo.SolverFactory("ipopt",executable=r"C:\Users\Public\ipopt.exe")
     elif problemType == "MINLP":
-        return pyo.SolverFactory("baron",executable=r"C:\GAMS\41\baron.exe")
+        return pyo.SolverFactory("scip")
     else:
         raise Exception(f"Problem Type \"{problemType}\" is not recognized.")

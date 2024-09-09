@@ -13,6 +13,8 @@ setup(
         'numpy',
         'pytest',
         'XlsxWriter',
-        'openpyxl'
+        'openpyxl',
+        'highspy',
+        'glpk'
       ]
 )
