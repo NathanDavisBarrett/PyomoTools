@@ -14,7 +14,6 @@ setup(
         'pytest',
         'XlsxWriter',
         'openpyxl',
-        'highspy',
-        'glpk'
+        'highspy'
       ]
 )
