@@ -2,7 +2,7 @@ import pyomo.environ as pyo
 import numpy as np
 import inspect
 
-from ..MergeModels import MergeModels
+from ..MergeableModel import MergableModel
 from ..Solvers import DefaultSolver
 
 def test_CarryBounds():
@@ -16,8 +16,10 @@ def test_CarryBounds():
     model2.Z = pyo.Var()
     model2.C1 = pyo.Constraint(expr=model2.Z == -2 * model2.Y)
 
-    model3 = pyo.ConcreteModel()
-    MergeModels(model3,{"model1":model1, "model2": model2})
+    model3 = MergableModel()
+
+    model3.AddSubModel("model1",model1)
+    model3.AddSubModel("model2",model2)
 
     model3.C1 = pyo.Constraint(expr=model3.model1.Y == model3.model2.Y)
 
@@ -49,8 +51,9 @@ def test_IndexedVars():
     model2.C2 = pyo.Constraint(expr=sum(model2.Y[i] for i in model2.Set1) == model2.A)
 
 
-    model3 = pyo.ConcreteModel()
-    MergeModels(model3,{"model1":model1, "model2": model2})
+    model3 = MergableModel()
+    model3.AddSubModel("model1",model1)
+    model3.AddSubModel("model2",model2)
 
     model3.B = pyo.Var()
     model3.C1 = pyo.Constraint(expr= model3.B == model3.model1.Z + model3.model2.A)
@@ -99,8 +102,9 @@ def test_CarrySolutions():
     model2.Z.value = -1
 
 
-    model3 = pyo.ConcreteModel()
-    MergeModels(model3,{"model1":model1, "model2": model2})
+    model3 = MergableModel()
+    model3.AddSubModel("model1",model1)
+    model3.AddSubModel("model2",model2)
 
     model3.Obj = pyo.Objective(expr=sum(model3.model1.Y[i] for i in model3.model1.Set1)+ model3.model2.Y,sense = pyo.maximize)
 
@@ -129,8 +133,9 @@ def test_CarryActivations():
     model2.C2 = pyo.Constraint(expr=model2.Z == model2.Y)
 
 
-    model3 = pyo.ConcreteModel()
-    MergeModels(model3,{"model1":model1, "model2": model2})
+    model3 = MergableModel()
+    model3.AddSubModel("model1",model1)
+    model3.AddSubModel("model2",model2)
 
     model3.Obj = pyo.Objective(expr=model3.model1.Z + model3.model2.Z,sense = pyo.maximize)
 
@@ -174,8 +179,9 @@ def test_CarryVariableDomains():
     model2.C2 = pyo.Constraint(expr=model2.Z == model2.Y)
 
 
-    model3 = pyo.ConcreteModel()
-    MergeModels(model3,{"model1":model1, "model2": model2})
+    model3 = MergableModel()
+    model3.AddSubModel("model1",model1)
+    model3.AddSubModel("model2",model2)
 
     model3.Obj = pyo.Objective(expr=model3.model1.Z + model3.model2.Z,sense = pyo.maximize)
 
@@ -196,4 +202,44 @@ def test_CarryVariableDomains():
         1,
         1
     ])
+    assert np.allclose(result,expected)
+
+def test_MultiLayered():
+    model1 = pyo.ConcreteModel()
+    model1.Set1 = pyo.Set(initialize=[1,2,3])
+    model1.X = pyo.Var(model1.Set1,domain=pyo.Binary)
+    model1.Y = pyo.Var(domain=pyo.Reals)
+
+    model1.C = pyo.Constraint(expr=sum(model1.X[i] for i in model1.Set1) == model1.Y)
+
+    model2 = MergableModel()
+    model2.AddSubModel("model1",model1)
+    model2.Z = pyo.Var(model2.model1.Set1,domain=pyo.Reals)
+
+    model2.C = pyo.Constraint(model2.model1.Set1,rule=lambda _,i: model2.Z[i] == - model2.model1.X[i])
+
+    model3 = MergableModel()
+    model3.AddSubModel("model2",model2)
+    model3.A = pyo.Var(model3.model2.model1.Set1,domain=pyo.Reals)
+
+    model3.C = pyo.Constraint(model3.model2.model1.Set1,rule=lambda _,i: model3.A[i] == -model3.model2.model1.X[i]**2 - 1.5 * model3.model2.Z[i])
+
+    model3.Obj = pyo.Objective(expr=sum(model3.A[i] for i in model3.model2.model1.Set1),sense=pyo.maximize)
+
+    solver = DefaultSolver("MIQCP")
+    solver.solve(model3)
+
+    result = np.array([
+        *[pyo.value(model3.model2.model1.X[i])  for i in model1.Set1],
+        pyo.value(model3.model2.model1.Y),
+        *[pyo.value(model3.model2.Z[i])  for i in model1.Set1],
+        *[pyo.value(model3.A[i])  for i in model1.Set1]
+    ])
+    expected = np.array([
+        1,1,1,
+        3,
+        -1,-1,-1,
+        0.5,0.5,0.5
+    ])
+
     assert np.allclose(result,expected)

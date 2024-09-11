@@ -13,7 +13,7 @@ Key functions include:
 * **Formulations.PWL**: A function to automatically generate a Piecewise-Linear approximation of a general (non-linear) function
 * **IO.ModelToExcel**: A function to write the solution of a model to an easily readable excel file.
 * **IO.LoadModelSolutionFromExcel**: A function to load a solution from an excel file into a pyomo model.
-* **MergeModels**: A function to merge a collection of pyomo models into one model.
+* **MergeableModel**: A class that extends the base pyo.ConcreteModel class that now allows for sub-models to be added.
 
 # Installation
 1. Download or clone this repository

@@ -1,4 +1,5 @@
 import pyomo.environ as pyo
+import numpy as np
 from ..MaxOperator import MaxOperator
 from ...Solvers import DefaultSolver
 
@@ -35,16 +36,14 @@ def nonIndexed_Base(includeBinary,fullModel):
 
         solver.solve(model)
 
-        assert pyo.value(model.A) == 100
-        assert pyo.value(model.C) == 100
+        assert np.allclose([pyo.value(model.A),pyo.value(model.C)],[100,100])
 
         model.obj.deactivate()
 
     model.obj1 = pyo.Objective(expr=model.A,sense=pyo.minimize)
     solver.solve(model)
 
-    assert pyo.value(model.A) == 2
-    assert pyo.value(model.B) == 2
+    assert np.allclose([pyo.value(model.A),pyo.value(model.B)],[2,2])
 
     if not fullModel:
         assert not hasattr(model,f"{relationshipBaseName}_Y")
@@ -104,8 +103,7 @@ def indexed_Base(includeBinary,fullModel):
         solver.solve(model)
 
         for ii in model.TestSet*model.TestSet:
-            assert pyo.value(model.A[ii]) == 100
-            assert pyo.value(model.C[ii]) == 100
+            assert np.allclose([pyo.value(model.A[ii]),pyo.value(model.C[ii])],[100,100])
 
         model.obj.deactivate()
 
@@ -113,8 +111,7 @@ def indexed_Base(includeBinary,fullModel):
     solver.solve(model)
 
     for ii in model.TestSet * model.TestSet:
-        assert pyo.value(model.A[ii]) == 2
-        assert pyo.value(model.B[ii]) == 2
+        assert np.allclose([pyo.value(model.A[ii]),pyo.value(model.B[ii])],[2,2])
 
     if not fullModel:
         assert not hasattr(model,f"{relationshipBaseName}_Y")
