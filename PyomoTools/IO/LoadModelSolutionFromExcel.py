@@ -28,7 +28,11 @@ def LoadModelSolutionFromExcel(model:pyo.ConcreteModel,excelFileName:str):
     varNames.remove("NonIndexedVars")
     
     for varName in varNames:
-        allVarData[varName] = pd.read_excel(excelFileName,sheet_name=varName)
+        df = pd.read_excel(excelFileName,sheet_name=varName)
+        if "Unnamed: 0" in df.columns:
+            df.set_index("Unnamed: 0",inplace=True)
+            df.index.name = None
+        allVarData[varName] = df
 
     LoadModelSolutionFromDF(model,allVarData)
 

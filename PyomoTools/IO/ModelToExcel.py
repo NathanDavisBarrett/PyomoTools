@@ -28,7 +28,12 @@ def ModelToExcel(model:pyo.ConcreteModel,excelFileName:str):
 
             if isIndexed:
                 df = vars[varName]
-                df.to_excel(writer,sheet_name=varName,index=False)
+                index = True
+                for col in df.columns:
+                    if str(col).startswith("Index"):
+                        index = False
+                        break
+                df.to_excel(writer,sheet_name=varName,index=index)
 
             else:
                 nonIndexedVariables[varName] = vars[varName]
