@@ -21,6 +21,8 @@ class InfeasibilityReport:
         The pyomo model (containing a solution) that you'd like to generate the infeasibility report for.
     aTol: float (optional, Default = 1e-3)
         The absolute tolerance to use when evaluating whether or not a given constraint is violated or not.
+    onlyInfeasibilities: bool (optional, Default = True)
+        An indication that you'd only like infeasibilities listed in this report. If False, all constraints will in included in the report.
 
     Members:
     --------
@@ -29,9 +31,10 @@ class InfeasibilityReport:
     substitutedExprs: 
         A dict with the same structure as exprs but with the value of each variable substituted into the expression string.
     """
-    def __init__(self, model:pyo.ConcreteModel,aTol=1e-3):
+    def __init__(self, model:pyo.ConcreteModel,aTol=1e-3,onlyInfeasibilities=True):
         self.exprs = {}
         self.substitutedExprs = {}
+        self.onlyInfeasibilities = onlyInfeasibilities
 
         self.numInfeas = 0
 
@@ -68,6 +71,9 @@ class InfeasibilityReport:
         bool:
             True if the solution is feasible with respect to this constraint or False if it is not.
         """
+        if not self.onlyInfeasibilities:
+            return False
+
         lower = constr.lower
         upper = constr.upper
         value = pyo.value(constr)
