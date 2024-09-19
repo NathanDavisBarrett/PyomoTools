@@ -1,6 +1,8 @@
 import pyomo.environ as pyo
+import re
 
 from .LoadVarSolutionFromDF import LoadVarSolutionFromDF
+from ..MergeableModel import MergableModel
 
 def LoadModelSolutionFromDF(model:pyo.ConcreteModel,data:dict):
     """
@@ -15,6 +17,11 @@ def LoadModelSolutionFromDF(model:pyo.ConcreteModel,data:dict):
     data: dict
         A dict mapping the name of each variable in the model the a panadas dataframe containing the values to load for that variable
     """
-    for varName in data:
+    for readableVarName in data:
+        if '.' in readableVarName:
+            path,component = readableVarName.rsplit('.',1)
+            varName = MergableModel.subModelKeyword + path.replace('.',MergableModel.componentKeyword+MergableModel.subModelKeyword) + MergableModel.componentKeyword + component
+        else:
+            varName = readableVarName
         var = getattr(model,varName)
-        LoadVarSolutionFromDF(var,data[varName])
+        LoadVarSolutionFromDF(var,data[readableVarName])

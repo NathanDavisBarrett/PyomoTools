@@ -8,7 +8,7 @@ class MergableModel(pyo.ConcreteModel):
 
     Sub-models will be Namespaced via two options, both will be accessible:
         1. parentModel.subModel.attribute
-        2. parentModel._SUBMODEL_subModel_attribute
+        2. parentModel._SUBMsubModel_COMPattribute
 
     Each attribute of the sub-model models will be duplicated into this parent model. In other words, an entire new copy of each of the attributes of each sub-model will be created. The "subModel" attribute within the parent will simply be a a python "object" class instance. Each attribute of this "Object" object (e.g. subModel.MyVariable) will simply point to the copy of that attribute belonging to the parent model under the name "parentModel.subModel_MyVariable.    
     """
