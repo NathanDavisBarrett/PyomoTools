@@ -1,7 +1,7 @@
 import pyomo.environ as pyo
 import re
 
-from .GenerateExpressionString import GenerateExpressionStrings
+from .GenerateExpressionString import GenerateExpressionStrings, MergeableModelFilter
 
 class InfeasibilityReport:
     """
@@ -115,9 +115,10 @@ class InfeasibilityReport:
         Iterates are strings of the following format: ConstraintName[Index (if appropriate)]: Expr \n SubstitutedExpression
         """
         for c in self.exprs:
+            cName = MergeableModelFilter(str(c))
             if isinstance(self.exprs[c],dict):
                 for i in self.exprs[c]:
-                    varName = "{}[{}]:".format(c,i)
+                    varName = "{}[{}]:".format(cName,i)
 
                     spaces = " "*len(varName)
                     shortenedStr = re.sub(' +', ' ', self.substitutedExprs[c][i])
@@ -141,7 +142,7 @@ class InfeasibilityReport:
 
                     yield "{} {}\n{} {}\n{} {}\n{} {}".format(varName,self.exprs[c][i],spaces,self.substitutedExprs[c][i],spaces,shortenedStr,spaces,evalStr)
             else:
-                spaces = " "*len(c)
+                spaces = " "*len(cName)
                 shortenedStr = re.sub(' +', ' ', self.substitutedExprs[c])
                 dividers = ["==","<=",">="]
                 divider = None
@@ -161,7 +162,7 @@ class InfeasibilityReport:
 
                 evalStr = f"{lhsVal} {divider} {rhsVal}"
 
-                yield "{}: {}\n{}  {}\n{}  {}\n{}  {}".format(c,self.exprs[c],spaces,self.substitutedExprs[c],spaces,shortenedStr,spaces,evalStr)
+                yield "{}: {}\n{}  {}\n{}  {}\n{}  {}".format(cName,self.exprs[c],spaces,self.substitutedExprs[c],spaces,shortenedStr,spaces,evalStr)
 
     def __len__(self):
         return self.numInfeas
