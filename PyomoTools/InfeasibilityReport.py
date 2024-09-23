@@ -23,6 +23,8 @@ class InfeasibilityReport:
         The absolute tolerance to use when evaluating whether or not a given constraint is violated or not.
     onlyInfeasibilities: bool (optional, Default = True)
         An indication that you'd only like infeasibilities listed in this report. If False, all constraints will in included in the report.
+    ignoreIncompleteConstraints: bool (optional, Default = False)
+        Sometimes a model solution might be incomplete (i.e. not all the variables in the model have a determined value). In such a case, it's ambiguous as to whether or not that constraint is satisfied or violated. False here will raise an error if this phenomenon is encountered. True will simply ignore that constraint if this phenomenon is encountered.
 
     Members:
     --------
@@ -31,10 +33,11 @@ class InfeasibilityReport:
     substitutedExprs: 
         A dict with the same structure as exprs but with the value of each variable substituted into the expression string.
     """
-    def __init__(self, model:pyo.ConcreteModel,aTol=1e-3,onlyInfeasibilities=True):
+    def __init__(self, model:pyo.ConcreteModel,aTol=1e-3,onlyInfeasibilities=True,ignoreIncompleteConstraints=False):
         self.exprs = {}
         self.substitutedExprs = {}
         self.onlyInfeasibilities = onlyInfeasibilities
+        self.ignoreIncompleteConstraints = ignoreIncompleteConstraints
 
         self.numInfeas = 0
 
@@ -76,7 +79,10 @@ class InfeasibilityReport:
 
         lower = constr.lower
         upper = constr.upper
-        value = pyo.value(constr)
+        value = pyo.value(constr,exception=not self.ignoreIncompleteConstraints)
+
+        if value is None:
+            return self.ignoreIncompleteConstraints
         
         if lower is not None:
             if value < lower - aTol:

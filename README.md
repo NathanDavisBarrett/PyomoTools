@@ -14,6 +14,7 @@ Key functions include:
 * **IO.ModelToExcel**: A function to write the solution of a model to an easily readable excel file.
 * **IO.LoadModelSolutionFromExcel**: A function to load a solution from an excel file into a pyomo model.
 * **MergeableModel**: A class that extends the base pyo.ConcreteModel class that now allows for sub-models to be added.
+* **FindLeastInfeasibleSolution**: A tool for finding the least infeasible solution of a (presumably infeasible) model. 
 
 # Installation
 1. Download or clone this repository

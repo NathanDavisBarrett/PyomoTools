@@ -11,7 +11,7 @@ def DefaultSolver(problemType="MILP"):
     problemType: str (optional, Default)
         The problem type you would like the default solver for. Options are "LP", "MILP","QP","MIQP","MIQCP","NLP","MINLP"
     """
-    if problemType in ["MILP","QP","MIQP"]:
+    if problemType in ["MILP","QP","MIQP","LP"]:
         return pyo.SolverFactory("scip")
     elif problemType == "NLP":
         return pyo.SolverFactory("scip")
