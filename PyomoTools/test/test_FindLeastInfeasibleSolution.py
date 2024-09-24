@@ -1,10 +1,10 @@
 import pyomo.environ as pyo
 import numpy as np
 
-from ..FindLeastInfeasibleSolution import FindLeastInfeasibleSolution
+from ..FindLeastInfeasibleSolution import FindLeastInfeasibleSolution,LeastInfeasibleDefinition
 from ..Solvers import DefaultSolver
 
-def test_SimpleProblem():
+def test_SimpleProblem1():
     model = pyo.ConcreteModel()
     model.x = pyo.Var(bounds=(0,None))
 
@@ -15,6 +15,65 @@ def test_SimpleProblem():
     xVal = pyo.value(model.x)
     assert xVal >= -1.000001
     assert xVal <= 0.000001
+
+def test_SimpleProblem_KnownSolution():
+    model = pyo.ConcreteModel()
+    model.x = pyo.Var()
+    model.y = pyo.Var()
+
+    model.c1 = pyo.Constraint(expr=model.y >= 2)
+    model.c2 = pyo.Constraint(expr=model.y >= -model.x + 4)
+    model.c3 = pyo.Constraint(expr=model.y <= -model.x + 2)
+    model.c4 = pyo.Constraint(expr=model.y <= 1)
+
+    FindLeastInfeasibleSolution(model,DefaultSolver("LP"),tee=True)
+
+    #Any point on the line y = x in 1 <= x <= 2 is a valid solution.
+
+    xVal = pyo.value(model.x)
+    yVal = pyo.value(model.y)
+
+    assert np.allclose([xVal,],[yVal,])
+    assert xVal >= -0.9999999
+    assert xVal <= 2.0000001
+    
+def test_SimpleProblem_KnownSolution():
+    model = pyo.ConcreteModel()
+    model.x = pyo.Var()
+    model.y = pyo.Var()
+
+    model.c1 = pyo.Constraint(expr=model.y >= 2)
+    model.c2 = pyo.Constraint(expr=model.y >= -model.x + 4)
+    model.c3 = pyo.Constraint(expr=model.y <= -model.x + 2)
+    model.c4 = pyo.Constraint(expr=model.y <= 1)
+
+    FindLeastInfeasibleSolution(model,DefaultSolver("QP"),tee=True)
+
+    #Any point on the line y = x in 1 <= x <= 2 is a valid solution.
+
+    xVal = pyo.value(model.x)
+    yVal = pyo.value(model.y)
+
+    assert np.allclose([xVal,],[yVal,])
+    assert xVal >= -0.9999999
+    assert xVal <= 2.0000001
+
+def test_L2():
+    model = pyo.ConcreteModel()
+    model.x = pyo.Var()
+    model.y = pyo.Var()
+
+    model.c1 = pyo.Constraint(expr=model.y >= 2)
+    model.c2 = pyo.Constraint(expr=model.y >= -model.x + 4)
+    model.c3 = pyo.Constraint(expr=model.y <= -model.x + 2)
+    model.c4 = pyo.Constraint(expr=model.y <= 1)
+
+    FindLeastInfeasibleSolution(model,DefaultSolver("QP"),leastInfeasibleDefinition=LeastInfeasibleDefinition.L2_Norm)
+
+    xVal = pyo.value(model.x)
+    yVal = pyo.value(model.y)
+
+    assert np.allclose([xVal,yVal],[1.5,1.5])
 
 def test_FeasibleProblem():
     model = pyo.ConcreteModel()
@@ -39,3 +98,5 @@ def test_Indexed():
 
     results = [pyo.value(model.y),*[pyo.value(model.x[i])for i in model.Set1]]
     assert np.allclose(results,np.zeros(len(results)))
+
+

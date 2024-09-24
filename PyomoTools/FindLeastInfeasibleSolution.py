@@ -1,8 +1,27 @@
 import pyomo.environ as pyo
 from pyomo.opt import TerminationCondition
 from copy import deepcopy
+from enum import Enum
 
-def FindLeastInfeasibleSolution(originalModel:pyo.ConcreteModel,solver,*args,**kwargs):
+class LeastInfeasibleDefinition(Enum):
+    """
+    Options
+    -------
+    L1_Norm:
+        Minimize the L1-norm of all constraint violations
+    Num_Violated_Constrs:
+        Minimize the total number of violated constraints (ignoring the degree to which they're violated.) (required "BigM" keyword argument indicating the maximum violation you'd like to consider.) (Note that this is a MUCH more expensive objective.)
+    Sequential:
+        A sequential application of Num_Violated_Constrs then L1_Norm.
+    L2_Norm:
+        Minimize the L2-norm of all constraint violations. This finds a center point between violated constraints but is inherently nonlinear
+    """
+    L1_Norm = 1
+    Num_Violated_Constrs = 2
+    Sequential = 3
+    L2_Norm = 4
+
+def FindLeastInfeasibleSolution(originalModel:pyo.ConcreteModel,solver,leastInfeasibleDefinition:LeastInfeasibleDefinition=LeastInfeasibleDefinition.L1_Norm,solver_args:tuple=(),solver_kwargs:dict={},**kwargs):
     """
     Often you'll run into models that are infeasible even they they shouldn't be. Typically there are constraints that are modeled incorrectly.
 
@@ -22,10 +41,14 @@ def FindLeastInfeasibleSolution(originalModel:pyo.ConcreteModel,solver,*args,**k
         The model you'd like to analyze
     solver: Pyomo SolverFactoryObject
         The solver you'd like to use to solve the augmented problem.
-    *args: tuple
+    leastInfeasibleDefinition: LeastInfeasibleDefinition (optional, Default = L1_Norm)
+        The definition you'd like to use as "least" infeasible.
+    solver_args: tuple (optional, Default = ())
         Any other arguments to pass to the solver's solve function.
-    **kwargs: dict
+    solver_kwargs: dict (optional, Default = {})
         Any other key-word arguments to pass to the solver's solve function.
+    **kwargs: dict
+        Other keyword arguments as needed by the leastInfeasibleDefinition
     """
 
     augmentedModel = deepcopy(originalModel)
@@ -72,7 +95,6 @@ def FindLeastInfeasibleSolution(originalModel:pyo.ConcreteModel,solver,*args,**k
     for constrName in constrNames:
         constr = getattr(augmentedModel,constrName)
         isIndexed = "Indexed" in str(type(constr))
-        
 
         slackVarName = f"{constrName}_SLACK"
 
@@ -87,14 +109,27 @@ def FindLeastInfeasibleSolution(originalModel:pyo.ConcreteModel,solver,*args,**k
             slackVars.append(slackVar)
 
         if isIndexed:
+            indexSet = constr.index_set()
             def lowerConstr(_,*idx):
-                if constr[idx].lower is not None:
-                    return constr[idx].lower - slackVar[idx] <= constr[idx].body
+                try:
+                    constri = constr[idx]
+                except:
+                    #Sometimes, if an iterate is nullified using pyo.Constraint.Feasible, it won't show up here.
+                    return pyo.Constraint.Feasible
+                
+                if constri.lower is not None:
+                    return constri.lower - slackVar[idx] <= constri.body
                 else:
                     return pyo.Constraint.Feasible
             def upperConstr(_,*idx):
-                if constr[idx].upper is not None:
-                    return constr[idx].body <= constr[idx].upper + slackVar[idx]
+                try:
+                    constri = constr[idx]
+                except:
+                    #Sometimes, if an iterate is nullified using pyo.Constraint.Feasible, it won't show up here.
+                    return pyo.Constraint.Feasible
+                
+                if constri.upper is not None:
+                    return constri.body <= constri.upper + slackVar[idx]
                 else:
                     return pyo.Constraint.Feasible
                 
@@ -115,18 +150,54 @@ def FindLeastInfeasibleSolution(originalModel:pyo.ConcreteModel,solver,*args,**k
             
         constr.deactivate()
 
-    #Step 3: Deactivate all objectives and replace them with the minimize slack variable objective.
+    #Step 3: Deactivate all objectives
     for obj in augmentedModel.component_objects(pyo.Objective,active=True):
         obj.deactivate()
 
-    augmentedModel.FIND_LEAST_INFEASIBLE_OBJ = pyo.Objective(expr=sum(slackVars),sense=pyo.minimize)
+    #Step 4: Define the augmented objective.
+    if leastInfeasibleDefinition == LeastInfeasibleDefinition.L1_Norm:
+        augmentedModel.LEAST_INFEASIBLE_L1_OBJ = pyo.Objective(expr=sum(slackVars),sense=pyo.minimize)
+    elif leastInfeasibleDefinition == LeastInfeasibleDefinition.L2_Norm:
+        augmentedModel.LEAST_INFEASIBLE_L2_OBJ = pyo.Objective(expr=sum(s**2 for s in slackVars),sense=pyo.minimize)
+    elif leastInfeasibleDefinition in [LeastInfeasibleDefinition.Num_Violated_Constrs,LeastInfeasibleDefinition.Sequential]:
+        assert "BigM" in kwargs, "The Num_Violated_Constrs requires a \"BigM\" parameter to be passed in."
+        BigM = kwargs["BigM"]
+        indices = list(range(len(slackVars)))
+        augmentedModel.slackActive = pyo.Var(indices,domain=pyo.Binary)
 
-    #Step 4: Solve the augmented model.
-    result = solver.solve(augmentedModel,*args,**kwargs)
+        augmentedModel.slackActive_Definition = pyo.Constraint(indices,rule= lambda _,i: slackVars[i] <= BigM * augmentedModel.slackActive[i])
+
+        augmentedModel.LEAST_INFEASIBLE_NUM_VIOLATED_OBJ = pyo.Objective(expr=sum(augmentedModel.slackActive[i] for i in indices),sense=pyo.minimize)
+    else:
+        raise Exception(f"{leastInfeasibleDefinition} is not a recognized definition. Please refer to options in the LeastInfeasibleDefinition enum.")
+
+    #Step 5: Solve the augmented model.
+    result = solver.solve(augmentedModel,*solver_args,**solver_kwargs)
     if result.solver.termination_condition != TerminationCondition.optimal:
         raise Exception("Something has gone wrong. The problem is likely due to variable bounds being defined the \"domain\" keyword in the variable definition. Please try using \"bounds\" keyword there.")
+    
+    if leastInfeasibleDefinition == LeastInfeasibleDefinition.Sequential:
+        #Fix all slack vars that are not active.
+        for i in indices:
+            val = pyo.value(augmentedModel.slackActive[i])
+            if val <= 0.5:
+                slackVars[i].fix(0)
+                augmentedModel.slackActive[i].fix(0)
+            else:
+                augmentedModel.slackActive[i].fix(1)
 
-    #Step 5: Copy the solution from the augmented model back to the original model.
+        augmentedModel.slackActive_Definition.deactivate()
+        augmentedModel.LEAST_INFEASIBLE_NUM_VIOLATED_OBJ.deactivate()
+
+        augmentedModel.LEAST_INFEASIBLE_L1_OBJ = pyo.Objective(expr=sum(slackVars),sense=pyo.minimize)
+
+
+        result = solver.solve(augmentedModel,*solver_args,**solver_kwargs)
+        if result.solver.termination_condition != TerminationCondition.optimal:
+            raise Exception("Something has gone wrong. The problem is likely due to variable bounds being defined the \"domain\" keyword in the variable definition. Please try using \"bounds\" keyword there.")
+
+
+    #Step 6: Copy the solution from the augmented model back to the original model.
     for var in originalModel.component_objects(pyo.Var, active=True):
         varName = str(var)
         isIndexed = "Indexed" in str(type(var))
