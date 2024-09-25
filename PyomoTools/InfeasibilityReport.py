@@ -1,5 +1,13 @@
 import pyomo.environ as pyo
 import re
+import numpy as np
+
+#If there are any non-standard functions to be evaluated in the constraints, we'll define them here.
+log = np.log
+exp = np.exp
+sin = np.sin
+cos = np.cos
+tan = np.tan
 
 from .GenerateExpressionString import GenerateExpressionStrings, MergeableModelFilter
 
