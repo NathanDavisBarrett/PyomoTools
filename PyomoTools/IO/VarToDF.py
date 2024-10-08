@@ -27,6 +27,8 @@ def VarToDF(var:pyo.Var) -> Union[pd.DataFrame,float]:
 
     if isIndexed:
         idxSet = [idx for idx in var.index_set()]
+        if len(idxSet) == 0:
+            return None
         multiDim = isinstance(idxSet[0],tuple)
         if multiDim:
             if len(idxSet[0]) == 2:

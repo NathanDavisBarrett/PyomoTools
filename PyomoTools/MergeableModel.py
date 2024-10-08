@@ -1,6 +1,7 @@
 import pyomo.environ as pyo
 from pyomo.core.expr.current import identify_variables
 from typing import Union
+from warnings import warn
 
 class MergableModel(pyo.ConcreteModel):
     """
@@ -13,8 +14,8 @@ class MergableModel(pyo.ConcreteModel):
     Each attribute of the sub-model models will be duplicated into this parent model. In other words, an entire new copy of each of the attributes of each sub-model will be created. The "subModel" attribute within the parent will simply be a a python "object" class instance. Each attribute of this "Object" object (e.g. subModel.MyVariable) will simply point to the copy of that attribute belonging to the parent model under the name "parentModel.subModel_MyVariable.    
     """
 
-    subModelKeyword = "_SUBM"
-    componentKeyword = "_COMP"
+    subModelKeyword = "_SUBMODEL_"
+    componentKeyword = "_COMPONENT_"
 
     def __init__(self):
         super().__init__()
@@ -85,8 +86,11 @@ class MergableModel(pyo.ConcreteModel):
                 varMap[name] = newVar
             else:
                 indices = var.index_set()
-                varSample = var[indices[1]]
-                setattr(self,newName,pyo.Var(indices,domain=varSample.domain,bounds=varSample.bounds))
+                if len(indices) == 0:
+                    setattr(self,newName,pyo.Var(indices))
+                else:
+                    varSample = var[indices[1]]
+                    setattr(self,newName,pyo.Var(indices,domain=varSample.domain,bounds=varSample.bounds))
                 newVar = getattr(self,newName)
                 for i in indices:
                     newVar[i].value = var[i].value
@@ -117,6 +121,10 @@ class MergableModel(pyo.ConcreteModel):
                 indices = constr.index_set()
                 
                 def rule(self,*index):
+                    if len(index) == 1:
+                        index = index[0]
+                    if index not in constr:
+                        return pyo.Constraint.Feasible
                     expr = constr[index].expr
                     varsInExpr = list(identify_variables(expr))
                     subVarMap = {id(var): varMap[str(var)] for var in varsInExpr}

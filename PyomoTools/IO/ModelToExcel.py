@@ -24,6 +24,9 @@ def ModelToExcel(model:pyo.ConcreteModel,excelFileName:str):
 
         #First, iterate over each variable.
         for varName in vars:
+            if vars[varName] is None:
+                continue
+
             isIndexed = not (isinstance(vars[varName],float) or vars[varName] is None)
 
             if isIndexed:
