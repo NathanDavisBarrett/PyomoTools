@@ -6,5 +6,6 @@ from .AssertPyomoModelsEqual import AssertPyomoModelsEqual
 from .Solvers import DefaultSolver
 from .MergeableModel import MergableModel   
 from .FindLeastInfeasibleSolution import FindLeastInfeasibleSolution
+from .VectorRepresentation import VectorRepresentation
 
-__all__ = ['LoadIndexedSet','Load2DIndexedSet','GenerateExpressionStrings','InfeasibilityReport','AssertPyomoModelsEqual','DefaultSolver','MergableModel','FindLeastInfeasibleSolution']
+__all__ = ['LoadIndexedSet','Load2DIndexedSet','GenerateExpressionStrings','InfeasibilityReport','AssertPyomoModelsEqual','DefaultSolver','MergableModel','FindLeastInfeasibleSolution','VectorRepresentation']
