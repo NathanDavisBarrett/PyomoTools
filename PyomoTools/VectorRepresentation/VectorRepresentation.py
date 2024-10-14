@@ -160,8 +160,10 @@ class VectorRepresentation:
 
         Returns
         -------
-        A,b,c,d,S_leq,S_eq: numpy arrays (b,c) or scipy csr matrices (A,S_leq,S_eq)
+        A,b,c,d: numpy arrays (b,c) or scipy csr matrix (A)
             The numpy arrays for the matrix representation of this problem. Please see the docstring for this function.
+        inequalityIndices: constraint indices corresponding to inequality constraints
+        equalityIndices: constraint indices corresponding to equality constraints
         """
         numConstr = len(self.CONSTR_VEC)
         numVar = len(self.VAR_VEC)
@@ -210,12 +212,10 @@ class VectorRepresentation:
         
 
         equalityIndices = np.where(equalityConstr)[0]
-        S_eq = csr_matrix((np.ones(len(equalityIndices)),(np.arange(len(equalityIndices)),equalityIndices)), shape=(len(equalityIndices),len(self.CONSTR_VEC)))
 
         inequalityIndices = np.where(np.logical_not(equalityConstr))[0]
-        S_leq = csr_matrix((np.ones(len(inequalityIndices)),(np.arange(len(inequalityIndices)),inequalityIndices)), shape=(len(inequalityIndices),len(self.CONSTR_VEC)))
 
-        return A,b,c,d,S_leq,S_eq
+        return A,b,c,d,inequalityIndices,equalityIndices
 
     def _AddEntries(self,entries:LinkedList,const:float,newEntries:LinkedList,newConst:float):
         """
@@ -294,12 +294,12 @@ class VectorRepresentation:
 
             newConst *= -1
             for nodei in newEntries:
-                nodei.val[2] *= -1
+                nodei.val[1] *= -1
 
             entries = newEntries
             const = newConst
         elif isinstance(expr,ProductExpression):
-            results = [self._ParseExpression(term) in expr.args]
+            results = [self._ParseExpression(term) for term in expr.args]
 
             #For this to be linear, no more than one of these results can have a non-zero number of entries. Track down which one this is and multiply it by the other coefficients.
 
@@ -320,9 +320,9 @@ class VectorRepresentation:
             baseConst *= newCoef
             if baseResult is not None:
                 for nodei in baseResult:
-                    nodei.val[2] *= newCoef
+                    nodei.val[1] *= newCoef
 
-            entries = newEntries
+            entries = baseResult
             const = baseConst
 
         else:

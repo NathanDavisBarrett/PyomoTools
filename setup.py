@@ -1,5 +1,18 @@
 from setuptools import setup, find_packages
 
+import subprocess
+import sys
+from warnings import warn
+
+def install_optional_package(package):
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+    except subprocess.CalledProcessError:
+        warn(f"Warning: {package} could not be installed. Continuing without it.")
+
+# Attempt to install the optional package
+install_optional_package('pypoman')
+
 setup(
     name='PyomoTools',
     version='0.2.5',
@@ -14,6 +27,10 @@ setup(
         'pytest',
         'XlsxWriter',
         'openpyxl',
-        'highspy'
-      ]
+        'highspy',
+        'scipy'
+      ],
+      extras_require={
+        'optional': ['pypoman']
+      }
 )

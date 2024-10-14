@@ -15,10 +15,13 @@ Key functions include:
 * **IO.LoadModelSolutionFromExcel**: A function to load a solution from an excel file into a pyomo model.
 * **MergeableModel**: A class that extends the base pyo.ConcreteModel class that now allows for sub-models to be added.
 * **FindLeastInfeasibleSolution**: A tool for finding the least infeasible solution of a (presumably infeasible) model. 
+* **VectorRepresentation**: A tool to convert a (Mixed-Integer) Linear model into it's vector/matrix representation.
+* **Polytope**: A class to facilitate the plotting and vertex calculation of a sub-polytope of a model.
 
 # Installation
 1. Download or clone this repository
 2. In your Python terminal, navigate to the repository you downloaded.
-3. Enter the command ```pip install .```
-4. PyomoTools and all dependencies should be automatically installed.
-5. To make sure everything was correctly installed, Enter the command ```pytest PyomoTools/```
+3. By default, the example/testing code used into this package uses the [SCIP solver](https://github.com/scipopt/scip). Please ensure you have this solver installed ([Instalation Link](https://www.scipopt.org/index.php#download)). If you'd like to instead use a different solver(s), please edit the "Solvers.py" file to point to the solvers you'd like to use before continuing.
+4. Enter the command ```pip install .```
+5. PyomoTools and all dependencies should be automatically installed.
+6. To make sure everything was correctly installed, Enter the command ```pytest PyomoTools/```

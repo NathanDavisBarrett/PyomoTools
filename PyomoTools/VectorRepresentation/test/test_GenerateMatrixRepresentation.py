@@ -51,16 +51,15 @@ def executeModelTest(model):
 
     xOrig = [pyo.value(v) for v in vecRep.VAR_VEC]
 
-    A,b,c,d,S_leq,S_eq = vecRep.Generate_Matrix_Representation()
+    A,b,c,d,inequalityIndices,equalityIndices = vecRep.Generate_Matrix_Representation()
 
     A = A.toarray()
-    S_leq = S_leq.toarray()
-    S_eq = S_eq.toarray()
+    print(A,inequalityIndices)
 
-    A_ub = S_leq@A
-    b_ub = S_leq@b
-    A_eq = S_eq@A
-    b_eq = S_eq@b
+    A_ub = A[inequalityIndices,:]
+    b_ub = b[inequalityIndices]
+    A_eq = A[equalityIndices,:]
+    b_eq = b[equalityIndices]
 
     hasEq = sum(A_eq.shape) > 0
     hasLeq = sum(A_ub.shape) > 0
@@ -133,16 +132,12 @@ def test_BigRandom():
 
     vecRep = VectorRepresentation(model)
 
-    Anew,bnew,cnew,dnew,S_leq,S_eq = vecRep.Generate_Matrix_Representation()
+    Anew,bnew,cnew,dnew,inequalityIndices,equalityIndices = vecRep.Generate_Matrix_Representation()
 
     Anew = Anew.toarray()
-    S_leq = S_leq.toarray()
-    S_eq = S_eq.toarray()
 
-    A_ub = S_leq@Anew
-    b_ub = S_leq@bnew
-    A_eq = S_eq@Anew
-    b_eq = S_eq@bnew
+    A_ub = Anew[inequalityIndices,:]
+    b_ub = bnew[inequalityIndices]
 
     assert np.allclose(A,A_ub)
     assert np.allclose(b,b_ub)
