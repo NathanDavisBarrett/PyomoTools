@@ -59,4 +59,3 @@ def test_ModelIOCycle_Excel():
         LoadModelSolutionFromExcel(modelCopy,temp_file_path)
 
     assert AssertPyomoModelsEqual(model,modelCopy)
-

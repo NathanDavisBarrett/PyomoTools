@@ -4,7 +4,7 @@ import numpy as np
 from ..Polytope import Polytope
 from ..Solvers import DefaultSolver
 
-def test_2D():
+def test_2D(plot=False):
     model = pyo.ConcreteModel()
     model.x = pyo.Var(bounds=(-5,5))
     model.y = pyo.Var(bounds=(-5,5))
@@ -14,9 +14,10 @@ def test_2D():
     model.c = pyo.Constraint(expr=3*(5*model.x + model.y - 13) <= model.z/2 + 10 + model.a)
 
     polytope = Polytope(model,[model.x,model.y])
-    polytope.Plot()
+    if plot:
+        polytope.Plot()
 
-def test_3D():
+def test_3D(plot=False):
     model = pyo.ConcreteModel()
     model.x = pyo.Var(bounds=(-5,5))
     model.y = pyo.Var(bounds=(-5,5))
@@ -26,9 +27,10 @@ def test_3D():
     model.c = pyo.Constraint(expr=3*(5*model.x + model.y - 13) <= model.z/2 + 10 + model.a)
 
     polytope = Polytope(model,[model.x,model.y,model.z])
-    polytope.Plot()
+    if plot:
+        polytope.Plot()
 
-def test_2D_DropConstr():
+def test_2D_DropConstr(plot=False):
     model = pyo.ConcreteModel()
     model.x = pyo.Var(bounds=(-5,5))
     model.y = pyo.Var(bounds=(-5,5))
@@ -40,5 +42,6 @@ def test_2D_DropConstr():
     model.c2 = pyo.Constraint(expr=model.z + model.a == 1)
 
     polytope = Polytope(model,[model.x,model.y])
-    polytope.Plot()
+    if plot:
+        polytope.Plot()
 
