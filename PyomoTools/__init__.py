@@ -4,7 +4,7 @@ from .GenerateExpressionString import GenerateExpressionStrings
 from .InfeasibilityReport import InfeasibilityReport
 from .AssertPyomoModelsEqual import AssertPyomoModelsEqual
 from .Solvers import DefaultSolver
-# from .MergeableModel import MergableModel   
+from .MergeableModel import MergableModel   
 from .FindLeastInfeasibleSolution import FindLeastInfeasibleSolution
 # from .VectorRepresentation.VectorRepresentation import VectorRepresentation
 # from .Polytope import Polytope
