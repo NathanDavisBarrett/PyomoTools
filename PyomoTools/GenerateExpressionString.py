@@ -41,7 +41,7 @@ def GenerateExpressionStrings(expr):
     vrs = sorted(vrs,reverse=True,key=lambda v:len(str(v)))
 
     for v in vrs:
-        varStr = v.getname()
+        varStr = v.name if hasattr(v,"name") else v.getname()
         valStr = str(pyo.value(v))
 
         varStrLen = len(varStr)

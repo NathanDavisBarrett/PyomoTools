@@ -1,6 +1,8 @@
 import pyomo.environ as pyo
+import pyomo.kernel as pmo
 import re
 import numpy as np
+from collections.abc import Iterable
 
 #If there are any non-standard functions to be evaluated in the constraints, we'll define them here.
 log = np.log
@@ -58,11 +60,16 @@ class InfeasibilityReport:
                 print(f"Warning! Could not locate constraint named \"{c}\"")
                 continue
 
-            if "Indexed" in str(type(constr)):
+            if isinstance(constr,Iterable):
                 #This constraint is indexed
-                for index in constr:
-                    if not self.TestFeasibility(constr[index],aTol=aTol):
-                        self.AddInfeasibility(name=c,index=index,constr=constr[index])
+                if isinstance(constr,pmo.constraint_list) or isinstance(constr,pmo.constraint_tuple):
+                    for index in range(len(constr)):
+                        if not self.TestFeasibility(constr[index],aTol=aTol):
+                            self.AddInfeasibility(name=str(c),index=index,constr=constr[index])
+                else:
+                    for index in constr:
+                        if not self.TestFeasibility(constr[index],aTol=aTol):
+                            self.AddInfeasibility(name=str(c),index=index,constr=constr[index])
             else:
                 if not self.TestFeasibility(constr,aTol=aTol):
                     self.AddInfeasibility(name=c,constr=constr)
@@ -87,16 +94,16 @@ class InfeasibilityReport:
 
         lower = constr.lower
         upper = constr.upper
-        value = pyo.value(constr,exception=not self.ignoreIncompleteConstraints)
+        body = pyo.value(constr.body, exception=self.ignoreIncompleteConstraints) #pyo.value(constr,exception=not self.ignoreIncompleteConstraints)
 
-        if value is None:
+        if body is None:
             return self.ignoreIncompleteConstraints
         
         if lower is not None:
-            if value < lower - aTol:
+            if body < lower - aTol:
                 return False
         if upper is not None:
-            if value > upper + aTol:
+            if body > upper + aTol:
                 return False
         return True
 
