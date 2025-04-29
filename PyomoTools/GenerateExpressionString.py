@@ -42,7 +42,10 @@ def GenerateExpressionStrings(expr):
 
     for v in vrs:
         varStr = v.name if hasattr(v,"name") else v.getname()
-        valStr = str(pyo.value(v))
+        try:
+            valStr = str(pyo.value(v))
+        except ValueError as e:
+            raise ValueError(f"The following error was thrown when attempting to collect the value of {varStr}:\n{e}")
 
         varStrLen = len(varStr)
         valStrLen = len(valStr)
