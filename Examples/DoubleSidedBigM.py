@@ -12,7 +12,7 @@ Where X and Y are continuous variables and Z is a binary variable.
 
 import pyomo.environ as pyo
 from PyomoTools.Formulations import DoubleSidedBigM
-from PyomoTools.Solvers import DefaultSolver
+from PyomoTools.base.Solvers import DefaultSolver
 from PyomoTools.IO import ModelToExcel
 
 xBounds = [-2,10]

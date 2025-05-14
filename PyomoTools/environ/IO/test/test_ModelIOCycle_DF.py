@@ -6,7 +6,7 @@ import pyomo.environ as pyo
 import numpy as np
 from copy import deepcopy
 
-from ...Solvers import DefaultSolver
+from ....base.Solvers import DefaultSolver
 
 def test_ModelIOCycle_DF():
     model = pyo.ConcreteModel()

@@ -1,6 +1,6 @@
 import pyomo.environ as pyo
 from ..PWL import PWL
-from ...Solvers import DefaultSolver
+from ....base.Solvers import DefaultSolver
 
 import numpy as np
 

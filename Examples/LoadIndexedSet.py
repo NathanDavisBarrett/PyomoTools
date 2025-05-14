@@ -7,7 +7,7 @@ In particular, this example demonstrates how to solve basic route planning probl
 import pyomo.environ as pyo
 from PyomoTools import LoadIndexedSet
 from PyomoTools.IO import ModelToExcel
-from PyomoTools.Solvers import DefaultSolver
+from PyomoTools.base.Solvers import DefaultSolver
 
 model = pyo.ConcreteModel()
 

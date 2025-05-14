@@ -1,7 +1,7 @@
 import pyomo.environ as pyo
 import numpy as np
 from ..MaxOperator import MaxOperator
-from ...Solvers import DefaultSolver
+from ....base.Solvers import DefaultSolver
 
 def nonIndexed_Base(includeBinary,fullModel):
     solver = DefaultSolver("MILP")

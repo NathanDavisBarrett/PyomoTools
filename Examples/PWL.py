@@ -13,7 +13,7 @@ Where X and Y are continuous variables and Z is a binary variable.
 import pyomo.environ as pyo
 import numpy as np
 from PyomoTools.Formulations import PWL
-from PyomoTools.Solvers import DefaultSolver
+from PyomoTools.base.Solvers import DefaultSolver
 from PyomoTools.IO import ModelToExcel
 
 def myFunc(x,magnitude,shift):

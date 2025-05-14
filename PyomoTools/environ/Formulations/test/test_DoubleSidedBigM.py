@@ -2,7 +2,7 @@ import pyomo.environ as pyo
 import numpy as np
 
 from ..DoubleSidedBigM import DoubleSidedBigM
-from ...Solvers import DefaultSolver
+from ....base.Solvers import DefaultSolver
 
 def test_NonIndexed_ManualBinary_NoC():
     xBounds = [-2,10]

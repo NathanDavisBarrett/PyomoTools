@@ -3,7 +3,7 @@ import numpy as np
 from scipy.optimize import linprog
 
 from ..VectorRepresentation import VectorRepresentation
-from ...Solvers import DefaultSolver
+from ....base.Solvers import DefaultSolver
 
 def PlotProb(A,b,c,xfeas=None):
     import matplotlib.pyplot as plt

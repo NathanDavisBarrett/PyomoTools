@@ -2,7 +2,7 @@ import pyomo.environ as pyo
 import numpy as np
 
 from ..Polytope import Polytope
-from ..Solvers import DefaultSolver
+from ...base.Solvers import DefaultSolver
 
 def test_2D(plot=False):
     model = pyo.ConcreteModel()

@@ -2,7 +2,7 @@ import pyomo.environ as pyo
 import numpy as np
 
 from ..FindLeastInfeasibleSolution import FindLeastInfeasibleSolution,LeastInfeasibleDefinition
-from ..Solvers import DefaultSolver
+from ...base.Solvers import DefaultSolver
 
 def test_SimpleProblem1():
     model = pyo.ConcreteModel()

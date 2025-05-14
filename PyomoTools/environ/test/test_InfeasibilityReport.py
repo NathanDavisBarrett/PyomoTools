@@ -1,11 +1,10 @@
 import pyomo.environ as pyo
-import pyomo.kernel as pmo
 
 import difflib
 
 from ..InfeasibilityReport import InfeasibilityReport
 
-def test_Basic_Feasible_Environ():
+def test_Basic_Feasible():
     model = pyo.ConcreteModel()
     model.x = pyo.Var()
     model.y = pyo.Var()
@@ -18,7 +17,7 @@ def test_Basic_Feasible_Environ():
     if len(report) != 0:
         raise AssertionError(f"The following infeasibilities were detected:\n{str(report)}")
     
-def test_Indexed_Feasible_Environ():
+def test_Indexed_Feasible():
     model = pyo.ConcreteModel()
     model.x = pyo.Var([0,1])
 
@@ -36,7 +35,7 @@ def test_Indexed_Feasible_Environ():
     if len(report) != 0:
         raise AssertionError(f"The following infeasibilities were detected:\n{str(report)}")
 
-def test_Infeasible_Environ():
+def test_Infeasible():
     model = pyo.ConcreteModel()
     model.x = pyo.Var([0,1])
 
@@ -52,98 +51,6 @@ def test_Infeasible_Environ():
 
     model.y = pyo.Var()
     model.c1 = pyo.Constraint(expr=model.y == 3*model.x[0])
-
-    model.x[0].value = 2.0
-    model.x[1].value = 2.0
-    model.y.value = 0.0
-
-    report = InfeasibilityReport(model)
-    assert len(report) == 2
-
-def test_Basic_Feasible_Kernel():
-    model = pmo.block()
-    model.x = pmo.variable()
-    model.y = pmo.variable()
-    model.c = pmo.constraint(model.x == 2 * model.y)
-
-    model.x.value = 2.0
-    model.y.value = 1.0
-
-    report = InfeasibilityReport(model)
-    if len(report) != 0:
-        raise AssertionError(f"The following infeasibilities were detected:\n{str(report)}")
-    
-def test_List_Feasible_Kernel():
-    model = pmo.block()
-    model.x = pmo.variable_list([
-        pmo.variable(),
-        pmo.variable()
-    ])
-
-    model.c = pmo.constraint_list([
-        pmo.constraint(model.x[0] == model.x[1] * 2),
-        pmo.constraint(model.x[0] == 2.0)
-    ])
-
-    model.x[0].value = 2.0
-    model.x[1].value = 1.0
-
-    report = InfeasibilityReport(model)
-    if len(report) != 0:
-        raise AssertionError(f"The following infeasibilities were detected:\n{str(report)}")
-    
-def test_Tuple_Feasible_Kernel():
-    model = pmo.block()
-    model.x = pmo.variable_tuple((
-        pmo.variable(),
-        pmo.variable()
-    ))
-
-    model.c = pmo.constraint_tuple((
-        pmo.constraint(model.x[0] == model.x[1] * 2),
-        pmo.constraint(model.x[0] == 2.0)
-    ))
-
-    model.x[0].value = 2.0
-    model.x[1].value = 1.0
-
-    report = InfeasibilityReport(model)
-    if len(report) != 0:
-        raise AssertionError(f"The following infeasibilities were detected:\n{str(report)}")
-    
-def test_Dict_Feasible_Kernel():
-    model = pmo.block()
-    model.x = pmo.variable_dict({
-        "0": pmo.variable(),
-        "1": pmo.variable()
-    })
-
-    model.c = pmo.constraint_dict({
-        "0": pmo.constraint(model.x["0"] == model.x["1"] * 2),
-        "1": pmo.constraint(model.x["0"] == 2.0)
-    })
-
-    model.x["0"].value = 2.0
-    model.x["1"].value = 1.0
-
-    report = InfeasibilityReport(model)
-    if len(report) != 0:
-        raise AssertionError(f"The following infeasibilities were detected:\n{str(report)}")
-    
-def test_Infeasible_Kernel():
-    model = pmo.block()
-    model.x = pmo.variable_list([
-        pmo.variable(),
-        pmo.variable()
-    ])
-
-    model.c = pmo.constraint_list([
-        pmo.constraint(model.x[0] == model.x[1] * 2),
-        pmo.constraint(model.x[0] == 2.0)
-    ])
-
-    model.y = pmo.variable()
-    model.c2 = pmo.constraint(model.y == 3*model.x[0])
 
     model.x[0].value = 2.0
     model.x[1].value = 2.0
@@ -199,7 +106,7 @@ def assertStringEquals(target,reportStr):
             message = f"Report output does not match expected value at the following position:\n{targLine}\n{prior}^\n{prior}|\n{prior}v\n{reportLine}\n\n\nFull Report Output:\n{reportStr}"
             raise AssertionError(message)
 
-def test_ReportFormat_Environ():
+def test_ReportFormat():
     model = pyo.ConcreteModel()
     model.x = pyo.Var([0,1])
 
@@ -232,41 +139,4 @@ c1: y    ==  3*x[0]
     0.0 == 6.0
 """
     assertStringEquals(target,reportStr)
-
-def test_ReportFormat_Kernel():
-    model = pmo.block()
-    model.x = pmo.variable_list([
-        pmo.variable(),
-        pmo.variable()
-    ])
-
-    model.c = pmo.constraint_list([
-        pmo.constraint(model.x[0] == model.x[1] * 2),
-        pmo.constraint(model.x[0] == 2.0)
-    ])
-
-    model.y = pmo.variable()
-    model.c2 = pmo.constraint(model.y == 3*model.x[0])
-
-    model.x[0].value = 2.0
-    model.x[1].value = 2.0
-    model.y.value = 0.0
-
-    report = InfeasibilityReport(model)
-    reportStr = str(report)
-    target = """c[0]: x[0] - 2*x[1]  ==  0.0
-      2.0  - 2*2.0   ==  0.0
-      2.0 - 2*2.0 == 0.0
-      -2.0 == 0.0
-
-      
-
-c2: y   - 3*x[0]  ==  0.0
-    0.0 - 3*2.0   ==  0.0
-    0.0 - 3*2.0 == 0.0
-    -6.0 == 0.0
-"""
-    assertStringEquals(target,reportStr)
-    
-    
 

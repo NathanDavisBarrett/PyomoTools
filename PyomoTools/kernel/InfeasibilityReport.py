@@ -1,7 +1,7 @@
-import pyomo.environ as pyo
+import pyomo.kernel as pmo
 import re
 import numpy as np
-from collections.abc import Iterable
+import warnings
 
 #If there are any non-standard functions to be evaluated in the constraints, we'll define them here.
 log = np.log
@@ -26,7 +26,7 @@ class InfeasibilityReport:
 
     Constructor Parameters
     ----------------------
-    model: pyo.ConcreteModel
+    model: pmo.block
         The pyomo model (containing a solution) that you'd like to generate the infeasibility report for.
     aTol: float (optional, Default = 1e-3)
         The absolute tolerance to use when evaluating whether or not a given constraint is violated or not.
@@ -42,39 +42,89 @@ class InfeasibilityReport:
     substitutedExprs: 
         A dict with the same structure as exprs but with the value of each variable substituted into the expression string.
     """
-    def __init__(self, model:pyo.ConcreteModel,aTol=1e-3,onlyInfeasibilities=True,ignoreIncompleteConstraints=False):
+    def __init__(self, model:pmo.block,aTol=1e-3,onlyInfeasibilities=True,ignoreIncompleteConstraints=False,name=None):
+        self.name = name
         self.exprs = {}
         self.substitutedExprs = {}
         self.onlyInfeasibilities = onlyInfeasibilities
         self.ignoreIncompleteConstraints = ignoreIncompleteConstraints
 
+        self.sub_reports = {}
+
         self.numInfeas = 0
 
-        for c in model.component_objects(pyo.Constraint, active=True):
+        #Find all children from within this block.
+        for c in model.children():
+            cName = c.local_name if hasattr(c,'local_name') else str(c)
+            fullName = c.name
             try:
-                constr = getattr(model,str(c))
+                obj = getattr(model,cName)
             except:
-                if ".DCC_constraint" in str(c):
+                if ".DCC_constraint" in cName:
                     continue
-                print(f"Warning! Could not locate constraint named \"{c}\"")
+                warnings.warn(f"Warning! Could not locate child object named \"{c}\"")
                 continue
 
-            if isinstance(constr,Iterable):
-                #This constraint is indexed
-                for index in constr:
-                    if not self.TestFeasibility(constr[index],aTol=aTol):
-                        self.AddInfeasibility(name=str(c),index=index,constr=constr[index])
-            else:
-                if not self.TestFeasibility(constr,aTol=aTol):
-                    self.AddInfeasibility(name=c,constr=constr)
+            if isinstance(obj,(
+                pmo.variable,
+                pmo.variable_dict,
+                pmo.variable_list,
+                pmo.variable_tuple,
+                pmo.parameter,
+                pmo.parameter_dict,
+                pmo.parameter_list,
+                pmo.parameter_tuple,
+                pmo.objective,
+                pmo.objective_dict,
+                pmo.objective_list,
+                pmo.objective_tuple,
+                pmo.expression,
+                pmo.expression_dict,
+                pmo.expression_list,
+                pmo.expression_tuple,
+                # pmo.sos1, #TODO: Should SOS's be given consideration here?
+                # pmo.sos2,
+                # pmo.sos_dict,
+                # pmo.sos_list,
+                # pmo.sos_tuple
+                )):
+                continue
+            elif isinstance(obj,(pmo.constraint_list,pmo.constraint_tuple)):
+                for index in range(len(obj)):
+                    if not self.TestFeasibility(obj[index],aTol=aTol):
+                        self.AddInfeasibility(name=str(c),index=index,constr=obj[index])
+            elif isinstance(obj,pmo.constraint_dict):
+                for index in obj:
+                    if not self.TestFeasibility(obj[index],aTol=aTol):
+                        self.AddInfeasibility(name=str(c),index=index,constr=obj[index])
+            elif isinstance(obj,pmo.constraint):
+                if not self.TestFeasibility(obj,aTol=aTol):
+                    self.AddInfeasibility(name=c,constr=obj)
 
-    def TestFeasibility(self,constr:pyo.Constraint,aTol=1e-5):
+            elif isinstance(obj,(pmo.block_list,pmo.block_tuple)):
+                for index in range(len(obj)):
+                    subName = f"{fullName}[{index}]"
+                    subReport = InfeasibilityReport(obj[index],aTol=aTol,onlyInfeasibilities=onlyInfeasibilities,ignoreIncompleteConstraints=ignoreIncompleteConstraints,name=subName)
+                    self.sub_reports[subName] = subReport
+            elif isinstance(obj,pmo.block_dict):
+                for index in obj:
+                    subName = f"{fullName}[{index}]"
+                    subReport = InfeasibilityReport(obj[index],aTol=aTol,onlyInfeasibilities=onlyInfeasibilities,ignoreIncompleteConstraints=ignoreIncompleteConstraints,name=subName)
+                    self.sub_reports[subName] = subReport
+            elif isinstance(obj,pmo.block):
+                subName = fullName
+                subReport = InfeasibilityReport(obj,aTol=aTol,onlyInfeasibilities=onlyInfeasibilities,ignoreIncompleteConstraints=ignoreIncompleteConstraints,name=subName)
+                self.sub_reports[subName] = subReport
+            else:
+                pass
+
+    def TestFeasibility(self,constr:pmo.constraint,aTol=1e-5):
         """
         A function to test whether or not a given constraint is violated by the solution contained within it.
 
         Parameters
         ----------
-        constr: pyo.Constraint
+        constr: pmo.constraint
             The constraint object you'd like to test.
         aTol: float (optional, Default = 1e-3)
             The absolute tolerance to use when evaluating whether or not a given constraint is violated or not.
@@ -88,7 +138,7 @@ class InfeasibilityReport:
 
         lower = constr.lower
         upper = constr.upper
-        body = pyo.value(constr.body, exception=self.ignoreIncompleteConstraints) #pyo.value(constr,exception=not self.ignoreIncompleteConstraints)
+        body = pmo.value(constr.body, exception=self.ignoreIncompleteConstraints) #pyo.value(constr,exception=not self.ignoreIncompleteConstraints)
 
         if body is None:
             return self.ignoreIncompleteConstraints
@@ -101,7 +151,7 @@ class InfeasibilityReport:
                 return False
         return True
 
-    def AddInfeasibility(self,name:str,constr:pyo.Constraint,index:object=None):
+    def AddInfeasibility(self,name:str,constr:pmo.constraint,index:object=None):
         """
         A function to add a violated constraint to this report
 
@@ -127,7 +177,7 @@ class InfeasibilityReport:
         """
         A python generator object (iterator) that iterates over each infeasibility.
 
-        Iterates are strings of the following format: ConstraintName[Index (if appropriate)]: Expr \n SubstitutedExpression
+        Iterates are lists of strings of the following format: ConstraintName[Index (if appropriate)]: Expr \n SubstitutedExpression
         """
         for c in self.exprs:
             cName = str(c)
@@ -135,7 +185,7 @@ class InfeasibilityReport:
                 for i in self.exprs[c]:
                     varName = "{}[{}]:".format(cName,i)
 
-                    spaces = " "*len(varName)
+                    spaces = " "*(len(varName)+1)
                     shortenedStr = re.sub(' +', ' ', self.substitutedExprs[c][i])
                     dividers = ["==","<=",">="]
                     divider = None
@@ -155,9 +205,14 @@ class InfeasibilityReport:
 
                     evalStr = f"{lhsVal} {divider} {rhsVal}"
 
-                    yield "{} {}\n{} {}\n{} {}\n{} {}".format(varName,self.exprs[c][i],spaces,self.substitutedExprs[c][i],spaces,shortenedStr,spaces,evalStr)
+                    yield [
+                        f"{varName} {self.exprs[c][i]}",
+                        f"{spaces}{self.substitutedExprs[c][i]}",
+                        f"{spaces}{shortenedStr}",
+                        f"{spaces}{evalStr}"
+                    ]
             else:
-                spaces = " "*len(cName)
+                spaces = " "*(len(cName)+2)
                 shortenedStr = re.sub(' +', ' ', self.substitutedExprs[c])
                 dividers = ["==","<=",">="]
                 divider = None
@@ -177,10 +232,47 @@ class InfeasibilityReport:
 
                 evalStr = f"{lhsVal} {divider} {rhsVal}"
 
-                yield "{}: {}\n{}  {}\n{}  {}\n{}  {}".format(cName,self.exprs[c],spaces,self.substitutedExprs[c],spaces,shortenedStr,spaces,evalStr)
+                yield [
+                    f"{cName}: {self.exprs[c]}",
+                    f"{spaces}{self.substitutedExprs[c]}",
+                    f"{spaces}{shortenedStr}",
+                    f"{spaces}{evalStr}"
+                ]
 
     def __len__(self):
-        return self.numInfeas
+        return self.numInfeas + sum(r.numInfeas for r in self.sub_reports.values())
+    
+    def to_string(self,recursionDepth=1):
+        """
+        A function to convert this report to a string.
+        """
+        if self.numInfeas == 0:
+            return ""
+
+        leftPad = "| "*(recursionDepth-1)
+        lines = [leftPad + (self.name if self.name is not None else "ROOT"),]
+        leftPad += "| "
+
+        fullPad = f"\n{leftPad}"
+
+        for infeas in self.Iterator():
+            lines.append(leftPad + fullPad.join(infeas))
+            lines.append(leftPad)
+        # lines.append(leftPad)
+
+        myResult = '\n'.join(lines)
+
+        subResults = []
+        for subReport in self.sub_reports.values():
+            subResults.append(subReport.to_string(recursionDepth+1) + fullPad)
+
+        totalResult = myResult 
+        if len(subResults) > 0:
+            totalResult += "\n" + "\n".join(subResults)
+
+        # totalResult += fullPad
+
+        return totalResult
     
     def __str__(self):
         """
@@ -190,11 +282,8 @@ class InfeasibilityReport:
         -----
         result = str(reportObject)
         """
-        lines = []
-        for infeas in self.Iterator():
-                lines.append(infeas)
-                lines.append("\n\n")
-        return '\n'.join(lines)
+        return self.to_string()
+        
 
     def WriteFile(self,fileName:str):
         """
