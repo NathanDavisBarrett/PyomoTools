@@ -6,7 +6,6 @@ import pyomo.environ as pyo
 import numpy as np
 from copy import deepcopy
 
-from ...MergeableModel import MergableModel
 from ...Solvers import DefaultSolver
 
 def test_ModelIOCycle_DF():
@@ -56,40 +55,3 @@ def test_ModelIOCycle_DF():
 
     assert AssertPyomoModelsEqual(model,modelCopy)
 
-def test_MultilayeredMergableModel():
-    def AssembleMulilayeredModel():
-        model1 = pyo.ConcreteModel()
-        model1.Set1 = pyo.Set(initialize=[1,2,3])
-        model1.X = pyo.Var(model1.Set1,domain=pyo.Binary)
-        model1.Y = pyo.Var(domain=pyo.Reals)
-
-        model1.C = pyo.Constraint(expr=sum(model1.X[i] for i in model1.Set1) == model1.Y)
-
-        model2 = MergableModel()
-        model2.AddSubModel("model1",model1)
-        model2.Z = pyo.Var(model2.model1.Set1,domain=pyo.Reals)
-
-        model2.C = pyo.Constraint(model2.model1.Set1,rule=lambda _,i: model2.Z[i] == - model2.model1.X[i])
-
-        model3 = MergableModel()
-        model3.AddSubModel("model2",model2)
-        model3.A = pyo.Var(model3.model2.model1.Set1,domain=pyo.Reals)
-
-        model3.C = pyo.Constraint(model3.model2.model1.Set1,rule=lambda _,i: model3.A[i] == -model3.model2.model1.X[i]**2 - 1.5 * model3.model2.Z[i])
-
-        model3.Obj = pyo.Objective(expr=sum(model3.A[i] for i in model3.model2.model1.Set1),sense=pyo.maximize)
-
-        return model3
-    
-    model = AssembleMulilayeredModel()
-
-    modelCopy = deepcopy(model)
-
-    solver = DefaultSolver("MIQCP")
-    solver.solve(model)
-
-    df = ModelToDF(model)
-
-    LoadModelSolutionFromDF(modelCopy,df)
-
-    assert AssertPyomoModelsEqual(model,modelCopy)

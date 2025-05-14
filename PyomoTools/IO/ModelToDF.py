@@ -2,8 +2,6 @@ import pyomo.environ as pyo
 
 from .VarToDF import VarToDF
 
-from ..MergeableModel import MergableModel
-
 def ModelToDF(model:pyo.ConcreteModel):
     """
     A function that converts a pyomo model containing a result to a dict mapping the name of each variable (str) to a pandas dataframe containing the values of that variable (if the variable is indexed) or to a float containing that variable's value (if the variable is not indexed).
@@ -23,7 +21,7 @@ def ModelToDF(model:pyo.ConcreteModel):
     for var in model.component_objects(ctype=pyo.Var):
         varName = str(var)
         
-        readableVarName = varName.replace(MergableModel.subModelKeyword,'').replace(MergableModel.componentKeyword,'.')
+        readableVarName = varName
 
         df = VarToDF(var)
 
