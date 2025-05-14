@@ -1,5 +1,4 @@
 import pyomo.environ as pyo
-import pyomo.kernel as pmo
 import re
 import numpy as np
 from collections.abc import Iterable
@@ -62,14 +61,9 @@ class InfeasibilityReport:
 
             if isinstance(constr,Iterable):
                 #This constraint is indexed
-                if isinstance(constr,pmo.constraint_list) or isinstance(constr,pmo.constraint_tuple):
-                    for index in range(len(constr)):
-                        if not self.TestFeasibility(constr[index],aTol=aTol):
-                            self.AddInfeasibility(name=str(c),index=index,constr=constr[index])
-                else:
-                    for index in constr:
-                        if not self.TestFeasibility(constr[index],aTol=aTol):
-                            self.AddInfeasibility(name=str(c),index=index,constr=constr[index])
+                for index in constr:
+                    if not self.TestFeasibility(constr[index],aTol=aTol):
+                        self.AddInfeasibility(name=str(c),index=index,constr=constr[index])
             else:
                 if not self.TestFeasibility(constr,aTol=aTol):
                     self.AddInfeasibility(name=c,constr=constr)
