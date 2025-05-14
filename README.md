@@ -13,7 +13,6 @@ Key functions include:
 * **Formulations.PWL**: A function to automatically generate a Piecewise-Linear approximation of a general (non-linear) function
 * **IO.ModelToExcel**: A function to write the solution of a model to an easily readable excel file.
 * **IO.LoadModelSolutionFromExcel**: A function to load a solution from an excel file into a pyomo model.
-* **MergeableModel**: A class that extends the base pyo.ConcreteModel class that now allows for sub-models to be added.
 * **FindLeastInfeasibleSolution**: A tool for finding the least infeasible solution of a (presumably infeasible) model. 
 * **VectorRepresentation**: A tool to convert a (Mixed-Integer) Linear model into it's vector/matrix representation.
 * **Polytope**: A class to facilitate the plotting and vertex calculation of a sub-polytope of a model.

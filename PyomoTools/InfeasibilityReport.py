@@ -11,7 +11,7 @@ sin = np.sin
 cos = np.cos
 tan = np.tan
 
-from .GenerateExpressionString import GenerateExpressionStrings, MergeableModelFilter
+from .GenerateExpressionString import GenerateExpressionStrings
 
 class InfeasibilityReport:
     """
@@ -136,7 +136,7 @@ class InfeasibilityReport:
         Iterates are strings of the following format: ConstraintName[Index (if appropriate)]: Expr \n SubstitutedExpression
         """
         for c in self.exprs:
-            cName = MergeableModelFilter(str(c))
+            cName = str(c)
             if isinstance(self.exprs[c],dict):
                 for i in self.exprs[c]:
                     varName = "{}[{}]:".format(cName,i)
