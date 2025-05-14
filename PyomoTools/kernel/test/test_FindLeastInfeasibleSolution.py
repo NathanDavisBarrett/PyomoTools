@@ -36,27 +36,6 @@ def test_SimpleProblem_KnownSolution():
     assert np.allclose([xVal,],[yVal,])
     assert xVal >= -0.9999999
     assert xVal <= 2.0000001
-    
-def test_SimpleProblem_KnownSolution():
-    model = pmo.block()
-    model.x = pmo.variable()
-    model.y = pmo.variable()
-
-    model.c1 = pmo.constraint(expr=model.y >= 2)
-    model.c2 = pmo.constraint(expr=model.y >= -model.x + 4)
-    model.c3 = pmo.constraint(expr=model.y <= -model.x + 2)
-    model.c4 = pmo.constraint(expr=model.y <= 1)
-
-    FindLeastInfeasibleSolution(model,DefaultSolver("QP"),tee=True)
-
-    #Any point on the line y = x in 1 <= x <= 2 is a valid solution.
-
-    xVal = pmo.value(model.x)
-    yVal = pmo.value(model.y)
-
-    assert np.allclose([xVal,],[yVal,])
-    assert xVal >= -0.9999999
-    assert xVal <= 2.0000001
 
 def test_L2():
     model = pmo.block()
@@ -85,7 +64,36 @@ def test_FeasibleProblem():
     assert xVal >= -1.000001
     assert xVal <= 0.000001
 
-#TODO: Test Indexed
-#TODO: Test multilevel
+def test_Indexed():
+    model = pmo.block()
+    model.x = pmo.variable_list([pmo.variable(lb=0) for i in range(3)])
+
+    model.c1 = pmo.constraint_list([pmo.constraint(model.x[i] <= -1) for i in range(3)])
+
+    FindLeastInfeasibleSolution(model,DefaultSolver("LP"),tee=True)
+
+    for i in range(3):  
+        xVal = pmo.value(model.x[i])
+        assert xVal >= -1.000001
+        assert xVal <= 0.000001
+
+def test_Multilevel():
+    model = pmo.block()
+    model.x = pmo.variable(lb=0)
+    model.sub = pmo.block()
+    model.sub.x = pmo.variable(lb=0)
+
+    model.c1 = pmo.constraint(model.x <= -1)
+    model.sub.c1 = pmo.constraint(model.sub.x <= -1)
+
+    FindLeastInfeasibleSolution(model,DefaultSolver("LP"),tee=True)
+    xVal = pmo.value(model.x)
+    assert xVal >= -1.000001
+    assert xVal <= 0.000001
+
+    xVal = pmo.value(model.sub.x)
+    assert xVal >= -1.000001
+    assert xVal <= 0.000001
+
 
 

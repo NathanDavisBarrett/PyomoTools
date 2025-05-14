@@ -15,7 +15,7 @@ install_optional_package('pypoman')
 
 setup(
     name='PyomoTools',
-    version='0.2.6',
+    version='0.3.0',
     packages=find_packages(),
     include_package_data=True,
     install_requires=[
@@ -28,7 +28,8 @@ setup(
         'XlsxWriter',
         'openpyxl',
         'highspy',
-        'scipy'
+        'scipy',
+        'pyyaml'
       ],
       extras_require={
         'optional': ['pypoman']

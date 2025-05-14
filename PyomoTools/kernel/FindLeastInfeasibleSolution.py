@@ -54,14 +54,14 @@ def AugmentModel(model:pmo.block):
     def lowerBound(var):
         lb = var.bounds[0]
         if lb is not None:
-            var.setlb(None)
+            var.lb = None
             return lb <= var
         else:
             return None
     def upperBound(var):
         ub = var.bounds[1]
         if ub is not None:
-            var.setub(None)
+            var.ub = None
             return ub >= var
         else:
             return None
@@ -102,7 +102,7 @@ def AugmentModel(model:pmo.block):
                 lowerBoundConstrs.append(lower)
             if upper is not None:
                 upperBoundConstrs.append(upper)
-        else:
+        elif isinstance(c,pmo.constraint):
             slackVar,lower,upper = ConfigureConstraint(c)
             slackVars.append(slackVar)
             if lower is not None:
@@ -138,7 +138,7 @@ def CopySolution(fromModel:pmo.block,toModel:pmo.block):
             for i in fromC:
                 toC[i].value = fromC[i].value
         elif isinstance(fromC,pmo.variable):
-            toC[i].value = fromC.value
+            toC.value = fromC.value
         
         elif isinstance(fromC,(pmo.block_list,pmo.block_tuple)):
             for i in range(len(fromC)):
