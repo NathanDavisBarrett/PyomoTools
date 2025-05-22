@@ -9,6 +9,7 @@ exp = np.exp
 sin = np.sin
 cos = np.cos
 tan = np.tan
+sqrt = np.sqrt
 
 from ..base.GenerateExpressionString import GenerateExpressionStrings
 
