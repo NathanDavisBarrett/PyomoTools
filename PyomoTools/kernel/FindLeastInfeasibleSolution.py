@@ -98,10 +98,10 @@ def AugmentModel(model:pmo.block):
             for i in c:
                 slackVar,lower,upper = ConfigureConstraint(c[i])
                 slackVars.append(slackVar)
-            if lower is not None:
-                lowerBoundConstrs.append(lower)
-            if upper is not None:
-                upperBoundConstrs.append(upper)
+                if lower is not None:
+                    lowerBoundConstrs.append(lower)
+                if upper is not None:
+                    upperBoundConstrs.append(upper)
         elif isinstance(c,pmo.constraint):
             slackVar,lower,upper = ConfigureConstraint(c)
             slackVars.append(slackVar)
@@ -115,7 +115,7 @@ def AugmentModel(model:pmo.block):
     model.upperBoundConstrs = pmo.constraint_list(upperBoundConstrs)
 
     #Step 4, Augment each sub-model
-    allSlackVars = deque(model.slackVars)
+    allSlackVars = deque(model.slackVars) # type: ignore
     for c in model.children():
         if isinstance(c,(pmo.block_list,pmo.block_tuple)):
             for i in range(len(c)):
@@ -192,9 +192,9 @@ def FindLeastInfeasibleSolution(originalModel:pmo.block,solver,leastInfeasibleDe
         BigM = kwargs["BigM"]
         augmentedModel.slackActive = pmo.variable_list([pmo.variable(domain=pmo.Binary) for i in range(len(slackVars))])
 
-        augmentedModel.slackActive_Definition = pmo.constraint_list([pmo.constraint(slackVars[i] <= BigM * augmentedModel.slackActive[i]) for i in range(len(slackVars))])
+        augmentedModel.slackActive_Definition = pmo.constraint_list([pmo.constraint(slackVars[i] <= BigM * augmentedModel.slackActive[i]) for i in range(len(slackVars))]) # type: ignore
 
-        augmentedModel.LEAST_INFEASIBLE_NUM_VIOLATED_OBJ = pmo.objective(sum(augmentedModel.slackActive[i] for i in range(len(slackVars))),sense=pmo.minimize)
+        augmentedModel.LEAST_INFEASIBLE_NUM_VIOLATED_OBJ = pmo.objective(sum(augmentedModel.slackActive[i] for i in range(len(slackVars))),sense=pmo.minimize) # type: ignore
     else:
         raise Exception(f"{leastInfeasibleDefinition} is not a recognized definition. Please refer to options in the LeastInfeasibleDefinition enum.")
 
