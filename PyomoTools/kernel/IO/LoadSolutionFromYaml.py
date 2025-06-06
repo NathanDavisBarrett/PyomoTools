@@ -1,5 +1,10 @@
 import yaml
 
+def represent_tuple(dumper, data):
+    return dumper.represent_sequence('tag:yaml.org,2002:seq', data)
+
+yaml.add_representer(tuple, represent_tuple)
+
 import pyomo.kernel as pmo
 from .LoadSolutionFromDict import LoadSolutionFromDict
 

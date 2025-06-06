@@ -13,15 +13,14 @@ class TimedIncumbentSolver:
         """
         def __init__(self,timeLimit=60):
             self.timeLimit = timeLimit
-            self.incumbent_found = False
             self.tic()
 
         def __call__(self,_ , solver, where):
-            if where == gp.GRB.Callback.MIPSOL:
-                self.incumbent_found = True
+            if where == gp.GRB.Callback.MIP:
+                solcount = solver._solver_model.cbGet(gp.GRB.Callback.MIP_SOLCNT)
  
-            if self.incumbent_found and time.time() - self.start_time >= self.timeLimit:
-                solver._solver_model.terminate()
+                if solcount > 0 and time.time() - self.start_time >= self.timeLimit:
+                    solver._solver_model.terminate()
 
         def tic(self):
             self.start_time = time.time()
