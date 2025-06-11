@@ -200,8 +200,8 @@ def FindLeastInfeasibleSolution(originalModel:pmo.block,solver,leastInfeasibleDe
 
     #Step 5: Solve the augmented model.
     result = solver.solve(augmentedModel,*solver_args,**solver_kwargs)
-    if result.solver.termination_condition != TerminationCondition.optimal:
-        raise Exception("Something has gone wrong. The problem is likely due to variable bounds being defined the \"domain\" keyword in the variable definition. Please try using \"bounds\" keyword there.")
+    if result.solver.termination_condition not in [TerminationCondition.optimal,TerminationCondition.maxTimeLimit,TerminationCondition.maxIterations,TerminationCondition.minFunctionValue,TerminationCondition.minStepLength,TerminationCondition.globallyOptimal,TerminationCondition.locallyOptimal,TerminationCondition.maxEvaluations]:
+        raise Exception(f"Something has gone wrong. The solver terminated with condition \"{result.solver.termination_condition}\". The problem is likely due to variable bounds being defined the \"domain\" keyword in the variable definition. Please try using \"bounds\" keyword there.")
     
     if leastInfeasibleDefinition == LeastInfeasibleDefinition.Sequential:
         #Fix all slack vars that are not active.

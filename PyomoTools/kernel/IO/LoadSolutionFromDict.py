@@ -15,12 +15,18 @@ def HandleAnomaly(message,outcome:AnomalyOutcome):
     else:
         pass
 
-def LoadSolutionFromDict(model:pmo.block,dct:dict,anomalyOutcome:AnomalyOutcome=AnomalyOutcome.Error):
+def LoadSolutionFromDict(model:pmo.block,dct:dict,anomalyOutcome:AnomalyOutcome=AnomalyOutcome.Error,unRepr:bool=True):
     for c in model.children():
-        cName = c.local_name
+        if isinstance(c,(pmo.constraint,pmo.constraint_list,pmo.constraint_tuple,pmo.constraint_dict,pmo.objective,pmo.objective_list,pmo.objective_tuple,pmo.objective_dict)):
+            # Constraints and objectives are not loaded from the solution dict
+            continue
 
-        if cName in dct:
-            e = dct[cName]
+        cName = c.local_name
+        cNameDict = repr(cName) if unRepr else cName
+
+        
+        if cNameDict in dct:
+            e = dct[cNameDict]
         else:
             HandleAnomaly(f"Model component \"{cName}\" could not be found in the provided data. Unless an error is thrown here, None will be used for all variable values resulting from this anomaly",anomalyOutcome)
             e = None
@@ -49,11 +55,12 @@ def LoadSolutionFromDict(model:pmo.block,dct:dict,anomalyOutcome:AnomalyOutcome=
                         c[k].value = None
                 else:
                     for k in c:
-                        if k not in e:
+                        kDict = repr(k) if unRepr else k
+                        if kDict not in e:
                             HandleAnomaly(f"Key \"{k}\" from model component \"{cName}\" was not found in the data. Unless an error is thrown here, None will be used.",anomalyOutcome)
                             c[k].value = None
                         else:
-                            c[k].value = e[k]
+                            c[k].value = e[kDict]
             else:
                 for k in c:
                     c[k].value = None
@@ -65,35 +72,36 @@ def LoadSolutionFromDict(model:pmo.block,dct:dict,anomalyOutcome:AnomalyOutcome=
                 if not isinstance(e,list):
                     HandleAnomaly(f"List-type model component\"{cName}\" did not correspond with a list in the provided data. Unless an error is thrown here, None will be used.",anomalyOutcome)
                     for i in range(len(c)):
-                        LoadSolutionFromDict(c[i],{},AnomalyOutcome.Ignore)
+                        LoadSolutionFromDict(c[i],{},AnomalyOutcome.Ignore,unRepr=unRepr)
                 elif len(c) != len(e):
                     HandleAnomaly(f"The length of variable list \"{cName}\" provided by the data ({len(e)}) does not match that found in the model ({len(c)}). Unless an error is thrown here, None will be used.",anomalyOutcome)
                     for i in range(len(c)):
-                        LoadSolutionFromDict(c[i],{},AnomalyOutcome.Ignore)
+                        LoadSolutionFromDict(c[i],{},AnomalyOutcome.Ignore,unRepr=unRepr)
                 else:
                     for i in range(len(c)):
-                        LoadSolutionFromDict(c[i],e[i],anomalyOutcome)
+                        LoadSolutionFromDict(c[i],e[i],anomalyOutcome,unRepr=unRepr)
             else:
                 for i in range(len(c)):
-                    LoadSolutionFromDict(c[i],{},AnomalyOutcome.Ignore)
+                    LoadSolutionFromDict(c[i],{},AnomalyOutcome.Ignore,unRepr=unRepr)
         elif isinstance(c,pmo.block_dict):
             if e is not None:
                 if not isinstance(e,dict):
                     HandleAnomaly(f"Dict-type model component\"{cName}\" did not correspond with a dict in the provided data. Unless an error is thrown here, None will be used.",anomalyOutcome)
                     for k in c:
-                        LoadSolutionFromDict(c[k],{},AnomalyOutcome.Ignore)
+                        LoadSolutionFromDict(c[k],{},AnomalyOutcome.Ignore,unRepr=unRepr)
                 else:
                     for k in c:
-                        if k not in e:
+                        kDict = repr(k) if unRepr else k
+                        if kDict not in e:
                             HandleAnomaly(f"Key \"{k}\" from model component \"{cName}\" was not found in the data. Unless an error is thrown here, None will be used.",anomalyOutcome)
-                            LoadSolutionFromDict(c[k],{},AnomalyOutcome.Ignore)
+                            LoadSolutionFromDict(c[k],{},AnomalyOutcome.Ignore,unRepr=unRepr)
                         else:
-                            LoadSolutionFromDict(c[k],e[k],anomalyOutcome)
+                            LoadSolutionFromDict(c[k],e[kDict],anomalyOutcome,unRepr=unRepr)
             else:
                 for k in c:
-                    LoadSolutionFromDict(c[k],{},AnomalyOutcome.Ignore)
+                    LoadSolutionFromDict(c[k],{},AnomalyOutcome.Ignore,unRepr=unRepr)
         elif isinstance(c,pmo.block):
             if e is not None:
-                LoadSolutionFromDict(c,e,anomalyOutcome)
+                LoadSolutionFromDict(c,e,anomalyOutcome,unRepr=unRepr)
             else:
-                LoadSolutionFromDict(c,{},AnomalyOutcome.Ignore)
+                LoadSolutionFromDict(c,{},AnomalyOutcome.Ignore,unRepr=unRepr)
