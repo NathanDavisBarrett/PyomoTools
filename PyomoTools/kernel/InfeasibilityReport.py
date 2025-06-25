@@ -139,7 +139,10 @@ class InfeasibilityReport:
 
         lower = constr.lower
         upper = constr.upper
-        body = pmo.value(constr.body, exception=self.ignoreIncompleteConstraints) #pyo.value(constr,exception=not self.ignoreIncompleteConstraints)
+        body = constr.body
+        if body is None:
+            return True
+        body = pmo.value(body, exception=self.ignoreIncompleteConstraints) #pyo.value(constr,exception=not self.ignoreIncompleteConstraints)
 
         if body is None:
             return self.ignoreIncompleteConstraints
@@ -196,15 +199,15 @@ class InfeasibilityReport:
                             break
                     
                     if divider is None:
-                        raise Exception(f"The following expression is not well posed as a constraint!\n{shortenedStr}")
-                    
-                    divIndex = shortenedStr.index(divider)
-                    lhs = shortenedStr[:divIndex].lstrip()
-                    rhs = shortenedStr[divIndex+2:].lstrip()
-                    lhsVal = eval(lhs)
-                    rhsVal = eval(rhs)
+                        evalStr = "N/A"
+                    else:
+                        divIndex = shortenedStr.index(divider)
+                        lhs = shortenedStr[:divIndex].lstrip()
+                        rhs = shortenedStr[divIndex+2:].lstrip()
+                        lhsVal = eval(lhs)
+                        rhsVal = eval(rhs)
 
-                    evalStr = f"{lhsVal} {divider} {rhsVal}"
+                        evalStr = f"{lhsVal} {divider} {rhsVal}"
 
                     yield [
                         f"{varName} {self.exprs[c][i]}",
@@ -223,15 +226,15 @@ class InfeasibilityReport:
                         break
                 
                 if divider is None:
-                    raise Exception(f"The following expression is not well posed as a constraint!\n{shortenedStr}")
-                
-                divIndex = shortenedStr.index(divider)
-                lhs = shortenedStr[:divIndex].lstrip()
-                rhs = shortenedStr[divIndex+2:].lstrip()
-                lhsVal = eval(lhs)
-                rhsVal = eval(rhs)
+                    evalStr = "N/A"
+                else:
+                    divIndex = shortenedStr.index(divider)
+                    lhs = shortenedStr[:divIndex].lstrip()
+                    rhs = shortenedStr[divIndex+2:].lstrip()
+                    lhsVal = eval(lhs)
+                    rhsVal = eval(rhs)
 
-                evalStr = f"{lhsVal} {divider} {rhsVal}"
+                    evalStr = f"{lhsVal} {divider} {rhsVal}"
 
                 yield [
                     f"{cName}: {self.exprs[c]}",

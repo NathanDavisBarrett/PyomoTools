@@ -180,7 +180,7 @@ def FindLeastInfeasibleSolution(originalModel:pmo.block,solver,leastInfeasibleDe
     """
 
     #Step 1: Augment the model
-    augmentedModel = deepcopy(originalModel)
+    augmentedModel = originalModel.clone()
     slackVars = AugmentModel(augmentedModel)
 
     if leastInfeasibleDefinition == LeastInfeasibleDefinition.L1_Norm:

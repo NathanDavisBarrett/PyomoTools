@@ -138,7 +138,7 @@ def AssertPyomoModelsEqual(model1:pmo.block,model2:pmo.block,rtol=1e-5,atol=1e-8
             return False
 
         if isinstance(subBlock1,pmo.block):
-            result = AssertPyomoModelsEqual_Kernel(subBlock1,subBlock2)
+            result = AssertPyomoModelsEqual(subBlock1,subBlock2)
             if not result:
                 return False
         elif isinstance(subBlock1,(pmo.block_list,pmo.block_tuple)):
@@ -147,7 +147,7 @@ def AssertPyomoModelsEqual(model1:pmo.block,model2:pmo.block,rtol=1e-5,atol=1e-8
                     SendErrorWarning(f"Sub-block {subBlock} has a different length in model1 ({len(subBlock1)}) and model2 ({len(subBlock2)}).",error,warning)
                 return False
             for i in range(len(subBlock1)):
-                result = AssertPyomoModelsEqual_Kernel(subBlock1[i],subBlock2[i])
+                result = AssertPyomoModelsEqual(subBlock1[i],subBlock2[i])
                 if not result:
                     return False
         elif isinstance(subBlock1,pmo.block_dict):
@@ -155,7 +155,7 @@ def AssertPyomoModelsEqual(model1:pmo.block,model2:pmo.block,rtol=1e-5,atol=1e-8
                 if error or warning:
                     SendErrorWarning(f"Sub-block {subBlock} has different keys in model1 ({set(subBlock1.keys())}) and model2 ({set(subBlock2.keys())}).",error,warning)
             for i in subBlock1.keys():
-                result = AssertPyomoModelsEqual_Kernel(subBlock1[i],subBlock2[i])
+                result = AssertPyomoModelsEqual(subBlock1[i],subBlock2[i])
                 if not result:
                     return False
                 

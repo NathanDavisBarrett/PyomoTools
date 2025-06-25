@@ -16,6 +16,9 @@ def GenerateExpressionStrings(expr):
         symStr: The symbolic expression string
         numStr: The numeric (substituted) string
     """
+    if expr is None:
+        return "", ""
+    
     symStr = str(expr)
     numStr = str(expr)
 
