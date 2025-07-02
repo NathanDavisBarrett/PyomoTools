@@ -2,6 +2,8 @@ import pyomo.kernel as pmo
 from warnings import warn
 from enum import Enum
 
+from .FormatKey import FormatKey
+
 class AnomalyOutcome(Enum):
     Error = 0
     Warning = 1
@@ -17,12 +19,12 @@ def HandleAnomaly(message,outcome:AnomalyOutcome):
 
 def LoadSolutionFromDict(model:pmo.block,dct:dict,anomalyOutcome:AnomalyOutcome=AnomalyOutcome.Error,unRepr:bool=True):
     for c in model.children():
-        if isinstance(c,(pmo.constraint,pmo.constraint_list,pmo.constraint_tuple,pmo.constraint_dict,pmo.objective,pmo.objective_list,pmo.objective_tuple,pmo.objective_dict)):
+        if isinstance(c,(pmo.constraint,pmo.constraint_list,pmo.constraint_tuple,pmo.constraint_dict,pmo.objective,pmo.objective_list,pmo.objective_tuple,pmo.objective_dict,pmo.expression,pmo.expression_list,pmo.expression_tuple,pmo.expression_dict)):
             # Constraints and objectives are not loaded from the solution dict
             continue
 
         cName = c.local_name
-        cNameDict = repr(cName) if unRepr else cName
+        cNameDict = FormatKey(repr(cName) if unRepr else cName)
 
         
         if cNameDict in dct:

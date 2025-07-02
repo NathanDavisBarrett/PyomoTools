@@ -1,5 +1,6 @@
 *.json
 *.xlsx
+*.txt
 
 
 # Byte-compiled / optimized / DLL files

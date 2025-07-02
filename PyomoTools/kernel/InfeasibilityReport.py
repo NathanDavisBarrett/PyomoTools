@@ -107,15 +107,18 @@ class InfeasibilityReport:
                     subName = f"{fullName}[{index}]"
                     subReport = InfeasibilityReport(obj[index],aTol=aTol,onlyInfeasibilities=onlyInfeasibilities,ignoreIncompleteConstraints=ignoreIncompleteConstraints,name=subName)
                     self.sub_reports[subName] = subReport
+                    self.numInfeas += subReport.numInfeas
             elif isinstance(obj,pmo.block_dict):
                 for index in obj:
                     subName = f"{fullName}[{index}]"
                     subReport = InfeasibilityReport(obj[index],aTol=aTol,onlyInfeasibilities=onlyInfeasibilities,ignoreIncompleteConstraints=ignoreIncompleteConstraints,name=subName)
                     self.sub_reports[subName] = subReport
+                    self.numInfeas += subReport.numInfeas
             elif isinstance(obj,pmo.block):
                 subName = fullName
                 subReport = InfeasibilityReport(obj,aTol=aTol,onlyInfeasibilities=onlyInfeasibilities,ignoreIncompleteConstraints=ignoreIncompleteConstraints,name=subName)
                 self.sub_reports[subName] = subReport
+                self.numInfeas += subReport.numInfeas
             else:
                 pass
 

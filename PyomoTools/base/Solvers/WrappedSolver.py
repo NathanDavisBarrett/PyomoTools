@@ -30,7 +30,7 @@ class WrappedSolver:
 
     def solve(self,model,*args,**kwargs):
         result = self.solver.solve(model,*args,**kwargs)
-        if result.solver.termination_condition == pmo.TerminationCondition.infeasible:
+        if result.solver.termination_condition in [pmo.TerminationCondition.infeasible, pmo.TerminationCondition.infeasibleOrUnbounded]:
             warnings.warn("The model was infeasible. Attempting to find a least infeasible solution.")
             FindLeastInfeasibleSolution(model,self.solver,leastInfeasibleDefinition=self.leastInfeasibleDefinition,solver_args=args,solver_kwargs=kwargs)
             if self.infeasibilityReportFileName is not None:
