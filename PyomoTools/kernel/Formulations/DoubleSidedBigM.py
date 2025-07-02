@@ -24,8 +24,6 @@ class DoubleSidedBigM(pmo.block):
 
         Parameters
         ----------
-        model: pmo.block
-            The Pyomo model you'd like to instantiate this relationship within
         A: pmo.variable | pmo.expression
             The Pyomo variable or expression representing "A" in this relationship
         B: pmo.variable | pmo.expression
