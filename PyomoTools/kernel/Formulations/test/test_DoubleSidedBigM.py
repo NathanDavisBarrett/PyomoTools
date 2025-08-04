@@ -4,6 +4,23 @@ import numpy as np
 from ..DoubleSidedBigM import DoubleSidedBigM
 from ....base.Solvers import DefaultSolver
 
+def test_Construction():
+    xBounds = [-2,10]
+
+    model = pmo.block()
+    model.Y = pmo.variable(domain=pmo.Reals)
+    model.X = pmo.variable(domain=pmo.Reals)
+    model.Z = pmo.variable(domain=pmo.Binary)
+
+    model.DSBM = DoubleSidedBigM(
+        A=model.Y,
+        B=model.X,
+        X=model.Z,
+        Bmin=xBounds[0],
+        Bmax=xBounds[1]
+    )
+    # model.DSBM.Plot()
+
 def test_ManualBinary_NoC():
     xBounds = [-2,10]
 

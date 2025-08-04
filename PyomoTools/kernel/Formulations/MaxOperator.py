@@ -2,7 +2,9 @@ import pyomo.kernel as pmo
 from typing import Union,Tuple
 import numpy as np
 
-class MaxOperator(pmo.block):
+from ._Formulation import _Formulation
+
+class MaxOperator(_Formulation):
     def __init__(self,
         A:Union[pmo.variable, pmo.expression],
         B:Union[pmo.variable, pmo.expression],
@@ -33,28 +35,55 @@ class MaxOperator(pmo.block):
         allowMaximizationPotential: bool (optional, Default=True)
             An indication of whether or not to configure this relationship in such a way to allow "A" to be maximized. If "A" will strictly be minimized, this relationship can simply be modeled as a convex set of two inequality constraints. But if "A" can or will be maximized, this relationship must be modeled using a Binary.
         """
-        super().__init__()
+        vars = ["B", "C", "A"]
+        varInfo = {
+            "A": (A, (max(bBounds[0],cBounds[0]), max(bBounds[1],cBounds[1]))),
+            "B": (B, bBounds),
+            "C": (C, cBounds)
+        }
+        if allowMaximizationPotential:
+            vars.append("Y")
+            varInfo["Y"] = (Y, (0, 1))
+        
+        super().__init__(
+            vars, varInfo
+        )
 
         if not allowMaximizationPotential:
-            self.bound0 = pmo.constraint(expr=A >= B)
-            self.bound1 = pmo.constraint(expr=A >= C)
+            self.registerConstraint(
+                lambda B, C, A: A >= B
+            )
+            self.registerConstraint(
+                lambda B, C, A: A >= C
+            )
 
         else:
             if Y is None:
                 self.Y = Y = pmo.variable(domain=pmo.Binary)
 
-            self.M = pmo.parameter(value=np.max([np.abs(bBounds[1] - cBounds[0]),np.abs(cBounds[1] - bBounds[0])])) #The maximum difference between B and C
+                self.originalVariables[3] = self.Y
 
-            self.c0 = pmo.constraint(expr=B-C <= self.M * Y)
+            bigM = np.max([np.abs(bBounds[1] - cBounds[0]),np.abs(cBounds[1] - bBounds[0])]) #The maximum difference between B and C
 
-            self.c1 = pmo.constraint(expr=C-B <= self.M * (1-Y))
+            self.registerConstraint(
+                lambda B, C, A, Y, M=bigM: B-C <= M * Y,
+            )
+            self.registerConstraint(
+                lambda B, C, A, Y, M=bigM: C-B <= M * (1-Y),
+            )
+            self.registerConstraint(
+                lambda B, C, A, Y: A >= B,
+            )
+            self.registerConstraint(
+                lambda B, C, A, Y: A >= C,
+            )
+            self.registerConstraint(
+                lambda B, C, A, Y, M=bigM: A <= B + M * (1-Y),
+            )
+            self.registerConstraint(
+                lambda B, C, A, Y, M=bigM: A <= C + M * Y,
+            )
 
-            self.c2 = pmo.constraint(expr=A >= B)
 
-            self.c3 = pmo.constraint(expr=A >= C)
-
-            self.c4 = pmo.constraint(expr=A <= B + self.M * (1-Y))
-
-            self.c5 = pmo.constraint(expr=A <= C + self.M * Y)
 
         

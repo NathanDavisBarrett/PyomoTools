@@ -3,6 +3,28 @@ import numpy as np
 from ..MaxOperator import MaxOperator
 from ....base.Solvers import DefaultSolver
 
+def test_Construction():
+    bBounds = (2,10)
+    cBounds = (-50,100)
+
+    model = pmo.block()
+
+    model.A = pmo.variable()
+    model.B = pmo.variable(lb=bBounds[0],ub=bBounds[1])
+    model.C = pmo.variable(lb=cBounds[0],ub=cBounds[1])
+    model.Y = pmo.variable(domain=pmo.Binary)
+
+    model.MO = MaxOperator(
+        A=model.A,
+        B=model.B,
+        C=model.C,
+        bBounds=bBounds,
+        cBounds=cBounds,
+        Y=model.Y
+    )
+
+    # model.MO.Plot()
+
 def Base(includeBinary,fullModel):
     solver = DefaultSolver("MILP")
     model = pmo.block()

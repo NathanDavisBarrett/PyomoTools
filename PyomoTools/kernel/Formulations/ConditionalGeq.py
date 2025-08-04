@@ -2,7 +2,9 @@ import pyomo.kernel as pmo
 
 from typing import Union, Tuple
 
-class ConditionalGeq(pmo.block):
+from ._Formulation import _Formulation
+
+class ConditionalGeq(_Formulation):
     """
     A block to model the following relationship in MILP form:
 
@@ -67,20 +69,29 @@ class ConditionalGeq(pmo.block):
         A_bounds: Tuple[float,float] (optional, Default=None)
             A tuple indicating the minimum and maximum possible values of "A". This is required if "A" does not have intrinsic bounds already defined or if "A" is an expression.
         """
-        super().__init__()
+        super().__init__(
+            ["A", "X"],
+            {
+                "A": (A, A_bounds),
+                "X": (X, (0, 1))
+            }
+        )
 
         if X is None:
             self.X = X = pmo.variable(domain=pmo.Binary)
+            self.originalVariables[1] = self.X
 
         Amin, Amax = self.GetBounds(A, A_bounds)
 
         assert Amin <= Amax - epsilon, "The minimum bound of A must be less than or equal to the maximum bound of A minus epsilon."
 
-        self.upperBound = pmo.constraint(
-            X * (alpha - Amin) <= A - Amin
+        self.registerConstraint(
+            lambda A, X: X * (alpha - Amin) <= A - Amin,
+            name="UpperBound"
         )
-        self.lowerBound = pmo.constraint(
-            X * (Amax - (alpha - epsilon)) >= A - (alpha - epsilon)
+        self.registerConstraint(
+            lambda A, X: X * (Amax - (alpha - epsilon)) >= A - (alpha - epsilon),
+            name="LowerBound"
         )
 
     def GetBounds(self,A,A_bounds) -> Tuple[float,float]:

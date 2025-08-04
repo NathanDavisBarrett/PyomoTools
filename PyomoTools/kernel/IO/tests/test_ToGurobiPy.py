@@ -53,4 +53,4 @@ def test_CorrectAnswer(basic_model):
 
     assert np.allclose(pyomoAnswers, gurobiAnswers)
 
-TODO: Now that Ive made an interface with guroipy and I know that MIPStart values will be initialized, Make a new "Mygurobi" solver that uses this interface. Alternatively, check if "gurobipy_persistent" utilizes MIPStart values.
+#TODO: Now that Ive made an interface with guroipy and I know that MIPStart values will be initialized, Make a new "Mygurobi" solver that uses this interface. Alternatively, check if "gurobipy_persistent" utilizes MIPStart values.

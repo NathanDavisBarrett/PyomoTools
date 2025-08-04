@@ -26,16 +26,14 @@ def test_SimpleProblem_KnownSolution():
     model.c3 = pmo.constraint(expr=model.y <= -model.x + 2)
     model.c4 = pmo.constraint(expr=model.y <= 1)
 
-    FindLeastInfeasibleSolution(model,DefaultSolver("LP"),tee=True)
+    FindLeastInfeasibleSolution(model,DefaultSolver("LP"),tee=True, leastInfeasibleDefinition=LeastInfeasibleDefinition.L2_Norm)
 
     #Any point on the line y = x in 1 <= x <= 2 is a valid solution.
 
     xVal = pmo.value(model.x)
     yVal = pmo.value(model.y)
 
-    assert np.allclose([xVal,],[yVal,])
-    assert xVal >= -0.9999999
-    assert xVal <= 2.0000001
+    assert np.allclose([xVal,yVal],[1.5,1.5])
 
 def test_L2():
     model = pmo.block()

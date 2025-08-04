@@ -4,6 +4,16 @@ import numpy as np
 from ..ConditionalGeq import ConditionalGeq
 from ....base.Solvers import DefaultSolver
 
+def test_Construction():
+    Amin = -2
+    Amax = 10
+
+    m = pmo.block()
+    m.A = pmo.variable(domain=pmo.Reals, lb=Amin, ub=Amax)
+    alpha = 5
+    m.C = ConditionalGeq(m.A, alpha)
+    # m.C.Plot()
+
 def test_leq():
     Amin = -2
     Amax = 10

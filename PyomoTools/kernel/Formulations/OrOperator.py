@@ -1,7 +1,9 @@
 import pyomo.kernel as pmo
 from typing import Union
 
-class OrOperator(pmo.block):
+from ._Formulation import _Formulation
+
+class OrOperator(_Formulation):
     def __init__(self,
         A:Union[pmo.variable, pmo.expression],
         B:Union[pmo.variable, pmo.expression],
@@ -26,10 +28,23 @@ class OrOperator(pmo.block):
         C: pmo.variable | pmo.expression
             The Pyomo variable or expression representing "C" in this relationship. Note that "C" should either be or evaluate to a binary value (0 or 1).
         """
-        super().__init__()
+        super().__init__(
+            ["B", "C", "A"],
+            {
+                "A": (A, (0, 1)),
+                "B": (B, (0, 1)),
+                "C": (C, (0, 1))
+            }
+        )
 
-        self.c0 = pmo.constraint(expr=A <= B + C)
-        self.c1 = pmo.constraint(expr=A >= B)
-        self.c2 = pmo.constraint(expr=A >= C)
+        self.registerConstraint(
+            lambda B, C, A: A <= B + C,
+        )
+        self.registerConstraint(
+            lambda B, C, A: A >= B,
+        )
+        self.registerConstraint(
+            lambda B, C, A: A >= C,
+        )
 
 

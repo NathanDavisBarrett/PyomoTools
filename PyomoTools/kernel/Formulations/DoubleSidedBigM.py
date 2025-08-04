@@ -1,7 +1,9 @@
 import pyomo.kernel as pmo
 from typing import Union
 
-class DoubleSidedBigM(pmo.block):
+from ._Formulation import _Formulation
+
+class DoubleSidedBigM(_Formulation):
     def __init__(self,
         A:Union[pmo.variable, pmo.expression],
         B:Union[pmo.variable, pmo.expression],
@@ -41,17 +43,49 @@ class DoubleSidedBigM(pmo.block):
         includeLowerBounds: bool (optional, Default=True)
             An indication of whether or not you'd like to instantiate the lower bounds of this relationship. Only mark this as False if you're certain that "A" will never be minimized.
         """
-        super().__init__()
-
-        if X is None:
-            self.X = X = pmo.variable(domain=pmo.Binary)
+        if isinstance(C, (float,int)):
+            Cbounds = (C, C)
+        elif isinstance(C, pmo.variable):
+            Cbounds = (C.lb, C.ub)
+        else:
+            Cbounds = (None, None)
+        super().__init__(
+            ["B", "X", "A", "C"],
+            {
+                "A": (A, (min(Bmin,Cbounds[0]), max(Bmax,Cbounds[1]))),
+                "B": (B, (Bmin, Bmax)),
+                "X": (X, (0, 1)),
+                "C": (C, Cbounds),
+            }
+        )
 
         if includeLowerBounds:
-            self.lowerBound0 = pmo.constraint(expr=A >= Bmin * X + C)
-            self.lowerBound1 = pmo.constraint(expr=A >= B + Bmax*(X-1) + C)
+            self.registerConstraint(
+                lambda B, X, A, C: A >= Bmin * X + C,
+                name="LowerBound0"
+            )
+            self.registerConstraint(
+                lambda B, X, A, C: A >= B + Bmax * (X - 1) + C,
+                name="LowerBound1"
+            )
         
         if includeUpperBounds:
-            self.upperBound0 = pmo.constraint(expr=A <= Bmax * X + C)
-            self.upperBounds1 = pmo.constraint(expr=A <= B + Bmin*(X-1) + C)
+            self.registerConstraint(
+                lambda B, X, A, C: A <= Bmax * X + C,
+                name="UpperBound0"
+            )
+            self.registerConstraint(
+                lambda B, X, A, C: A <= B + Bmin * (X - 1) + C,
+                name="UpperBound1"
+            )
+
+    def Setup(self):
+        super().Setup()
+
+        Xindex = self.variableNames.index("X")
+
+        if self.originalVariables[Xindex] is None:
+            self.X = pmo.variable(domain=pmo.Binary)
+            self.originalVariables[Xindex] = self.X
 
         

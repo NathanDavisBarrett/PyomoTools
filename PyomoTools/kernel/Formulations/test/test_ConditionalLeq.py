@@ -13,9 +13,6 @@ def test_leq():
     alpha = 5
     m.C = ConditionalLeq(m.A, alpha)
 
-    print(m.C.upperBound.expr)
-    print(m.C.lowerBound.expr)
-
     m.A.fix(7)
 
     m.obj = pmo.objective(m.C.X, sense=pmo.maximize)
