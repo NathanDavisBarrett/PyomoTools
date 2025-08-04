@@ -19,7 +19,7 @@ class RealBinaryIndicator(_Formulation):
 
     or 
 
-        X = 0 if (A <= alphaPrime) and (Y = 1) else 1
+        X = 1 if (A <= alphaPrime) and (Y = 1) else 0
 
     (depending of the ARelationOption provided)
 
