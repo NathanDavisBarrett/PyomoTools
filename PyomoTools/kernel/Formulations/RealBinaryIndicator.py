@@ -4,6 +4,7 @@ import numpy as np
 import enum
 
 from typing import Union, Tuple
+from warnings import warn
 
 from ._Formulation import _Formulation
 
@@ -34,10 +35,10 @@ class RealBinaryIndicator(_Formulation):
     ARelationOption.GEQ:
         1. (0,0,alphaMin), (0,1,alphaMin), (1,1,alphaPrime)
         2. (0,0,alphaMin), (1,1,alphaMin), (0,0,alphaMax)
-        3. (0,1,alphaPrime), (0,0,alphaMax), (1,1,alphaMax)
+        3. (0,1,alphaPrime-epsilon), (0,0,alphaMax), (1,1,alphaMax)
 
     ARelationOption.LEQ:
-        1. (0,0,alphaMin), (0,1,alphaPrime), (1,1,alphaMin)
+        1. (0,0,alphaMin), (0,1,alphaPrime+epsilon), (1,1,alphaMin)
         2. (0,0,alphaMin), (1,1,alphaMin), (0,0,alphaMax)
         3. (0,1,alphaMax), (1,1,alphaPrime), (0,0,alphaMax)
     """
@@ -49,6 +50,7 @@ class RealBinaryIndicator(_Formulation):
             alphaMin:float,
             alphaMax:float,
             aRelationOption:ARelationOption=ARelationOption.GEQ,
+            epsilon:float=1e-6,
         ):
         super().__init__(
             ["X", "Y", "A"],
@@ -62,6 +64,9 @@ class RealBinaryIndicator(_Formulation):
         self.alphaPrime = alphaPrime
         self.alphaMin = alphaMin
         self.alphaMax = alphaMax
+        if epsilon <= 0:
+            warn(f"Epsilon value {epsilon} is non-positive. This may lead to numerical issues in the formulation. For virtually all usages, epsilon should be a small positive value (e.g., 1e-6).", UserWarning)
+        self.epsilon = epsilon
 
         if aRelationOption == ARelationOption.GEQ:
             self._initGEQ(X, Y, A)
@@ -150,7 +155,7 @@ class RealBinaryIndicator(_Formulation):
         self._constructConstraint(
             X, Y, A,
             [
-                (0,1,self.alphaPrime), 
+                (0,1,self.alphaPrime-self.epsilon), 
                 (0,0,self.alphaMax), 
                 (1,1,self.alphaMax)
             ],
@@ -163,7 +168,7 @@ class RealBinaryIndicator(_Formulation):
             X, Y, A,
             [
                 (0,0,self.alphaMin), 
-                (0,1,self.alphaPrime), 
+                (0,1,self.alphaPrime+self.epsilon), 
                 (1,1,self.alphaMin)
             ],
             (0,1,self.alphaMin)

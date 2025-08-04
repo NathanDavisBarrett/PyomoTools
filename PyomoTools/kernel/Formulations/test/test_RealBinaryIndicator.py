@@ -83,7 +83,7 @@ def test_GEQ_ExtremePoints():
         (0,1,alphaMin), 
         (1,1,alphaPrime),
         (0,0,alphaMax),
-        (0,1,alphaPrime),
+        # (0,1,alphaPrime), #This point is not feasible due to epsilon
         (1,1,alphaMax)
     ]
     for Xval, YVal, Aval in extremePoints:
@@ -98,9 +98,15 @@ def test_LEQ_ExtremePoints():
     alphaMax = 10.0
 
     extremePoints = [
-        (0,0,alphaMin), (0,1,alphaPrime), (1,1,alphaMin),
-        (0,0,alphaMin), (1,1,alphaMin), (0,0,alphaMax),
-        (0,1,alphaMax), (1,1,alphaPrime), (0,0,alphaMax)
+        (0,0,alphaMin), 
+        # (0,1,alphaPrime),  # This point is not feasible due to epsilon
+        (1,1,alphaMin),
+        (0,0,alphaMin), 
+        (1,1,alphaMin), 
+        (0,0,alphaMax),
+        (0,1,alphaMax), 
+        (1,1,alphaPrime), 
+        (0,0,alphaMax)
     ]
     for Xval, YVal, Aval in extremePoints:
         assert executePointTest(Xval, YVal, Aval, alphaPrime, alphaMin, alphaMax, ARelationOption.LEQ, enforceBinary=True)
@@ -159,6 +165,7 @@ def test_GEQ_InfeasibleInteriorPoints():
         (1,0,alphaMax),
         (1,1,alphaMin),
         (0,1,alphaMax),
+        (0,1,alphaPrime)
     ]
     for Xval, YVal, Aval in points:
         assert not executePointTest(Xval, YVal, Aval, alphaPrime, alphaMin, alphaMax, ARelationOption.GEQ, enforceBinary=False)
@@ -174,6 +181,7 @@ def test_LEQ_InfeasibleInteriorPoints():
         (1,0,alphaMax),
         (0,1,alphaMin),
         (1,1,alphaMax),
+        (0,1,alphaPrime)
     ]
 
     for Xval, YVal, Aval in points:
