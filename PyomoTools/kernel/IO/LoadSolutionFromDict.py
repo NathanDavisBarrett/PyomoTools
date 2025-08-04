@@ -57,7 +57,7 @@ def LoadSolutionFromDict(model:pmo.block,dct:dict,anomalyOutcome:AnomalyOutcome=
                         c[k].value = None
                 else:
                     for k in c:
-                        kDict = repr(k) if unRepr else k
+                        kDict = FormatKey(repr(k) if unRepr else k)#repr(k) if unRepr else k
                         if kDict not in e:
                             HandleAnomaly(f"Key \"{k}\" from model component \"{cName}\" was not found in the data. Unless an error is thrown here, None will be used.",anomalyOutcome)
                             c[k].value = None
@@ -93,7 +93,7 @@ def LoadSolutionFromDict(model:pmo.block,dct:dict,anomalyOutcome:AnomalyOutcome=
                         LoadSolutionFromDict(c[k],{},AnomalyOutcome.Ignore,unRepr=unRepr)
                 else:
                     for k in c:
-                        kDict = repr(k) if unRepr else k
+                        kDict = FormatKey(repr(k) if unRepr else k)#repr(k) if unRepr else k
                         if kDict not in e:
                             HandleAnomaly(f"Key \"{k}\" from model component \"{cName}\" was not found in the data. Unless an error is thrown here, None will be used.",anomalyOutcome)
                             LoadSolutionFromDict(c[k],{},AnomalyOutcome.Ignore,unRepr=unRepr)
