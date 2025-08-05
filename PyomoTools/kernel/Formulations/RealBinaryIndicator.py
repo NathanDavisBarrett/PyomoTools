@@ -8,9 +8,10 @@ from warnings import warn
 
 from ._Formulation import _Formulation
 
-class ARelationOption(enum.Enum):
+class Relation(enum.Enum):
     GEQ = 0
     LEQ = 1
+    EQ = 2
 
 class RealBinaryIndicator(_Formulation):
     """
@@ -22,7 +23,7 @@ class RealBinaryIndicator(_Formulation):
 
         X = 1 if (A <= alphaPrime) and (Y = 1) else 0
 
-    (depending of the ARelationOption provided)
+    (depending of the Relation provided)
 
     where
     * A is a continuous variable (or expression) between alphaMin and alphaMax
@@ -32,12 +33,12 @@ class RealBinaryIndicator(_Formulation):
 
     This is accomplished by constraining three planes defined by the following collections of (X,Y,A) points:
 
-    ARelationOption.GEQ:
+    Relation.GEQ:
         1. (0,0,alphaMin), (0,1,alphaMin), (1,1,alphaPrime)
         2. (0,0,alphaMin), (1,1,alphaMin), (0,0,alphaMax)
         3. (0,1,alphaPrime-epsilon), (0,0,alphaMax), (1,1,alphaMax)
 
-    ARelationOption.LEQ:
+    Relation.LEQ:
         1. (0,0,alphaMin), (0,1,alphaPrime+epsilon), (1,1,alphaMin)
         2. (0,0,alphaMin), (1,1,alphaMin), (0,0,alphaMax)
         3. (0,1,alphaMax), (1,1,alphaPrime), (0,0,alphaMax)
@@ -49,7 +50,7 @@ class RealBinaryIndicator(_Formulation):
             alphaPrime:float,
             alphaMin:float,
             alphaMax:float,
-            aRelationOption:ARelationOption=ARelationOption.GEQ,
+            aRelation:Relation=Relation.GEQ,
             epsilon:float=1e-6,
         ):
         super().__init__(
@@ -64,16 +65,75 @@ class RealBinaryIndicator(_Formulation):
         self.alphaPrime = alphaPrime
         self.alphaMin = alphaMin
         self.alphaMax = alphaMax
+        assert alphaMin <= alphaMax, f"alphaMin ({alphaMin}) must be less than or equal to alphaMax ({alphaMax})"
+
         if epsilon <= 0:
             warn(f"Epsilon value {epsilon} is non-positive. This may lead to numerical issues in the formulation. For virtually all usages, epsilon should be a small positive value (e.g., 1e-6).", UserWarning)
         self.epsilon = epsilon
+        self.points = []
 
-        if aRelationOption == ARelationOption.GEQ:
-            self._initGEQ(X, Y, A)
-        elif aRelationOption == ARelationOption.LEQ:
-            self._initLEQ(X, Y, A)
+        if aRelation == Relation.GEQ:
+            #X = 1 if (A >= alphaPrime) and (Y = 1) else 0
+            if alphaPrime > alphaMax:
+                # Since alphaPrime > alphaMax >= A, alphaPrime > A
+                # Thus, X = 0 regardless of Y or A
+                self.registerConstraint(
+                    self.PlanarFunc([1,0,0,0], Relation.EQ)
+                )
+                # Still enforce the bounds on A
+                self.registerConstraint(
+                    self.PlanarFunc([0,0,1,alphaMax], Relation.LEQ)
+                )
+                self.registerConstraint(
+                    self.PlanarFunc([0,0,1,alphaMin], Relation.GEQ)
+                )
+            elif alphaPrime < alphaMin:
+                # Since alphaPrime < alphaMin <= A, alphaPrime < A
+                # Thus, X = Y, regardless of A
+                self.registerConstraint(
+                    self.PlanarFunc([1,-1,0,0], Relation.EQ)
+                )
+                # Still enforce the bounds on A
+                self.registerConstraint(
+                    self.PlanarFunc([0,0,1,alphaMax], Relation.LEQ)
+                )
+                self.registerConstraint(
+                    self.PlanarFunc([0,0,1,alphaMin], Relation.GEQ)
+                )
+            else:
+                self._initGEQ(X, Y, A)
+        elif aRelation == Relation.LEQ:
+            #X = 1 if (A <= alphaPrime) and (Y = 1) else 0
+            if alphaPrime > alphaMax:
+                # Since alphaPrime > alphaMax >= A, alphaPrime > A
+                # Thus, X = Y, regardless of A
+                self.registerConstraint(
+                    self.PlanarFunc([1,-1,0,0], Relation.EQ)
+                )
+                # Still enforce the bounds on A
+                self.registerConstraint(
+                    self.PlanarFunc([0,0,1,alphaMax], Relation.LEQ)
+                )
+                self.registerConstraint(
+                    self.PlanarFunc([0,0,1,alphaMin], Relation.GEQ)
+                )
+            elif alphaPrime < alphaMin:
+                # Since alphaPrime < alphaMin <= A, alphaPrime < A
+                # Thus, X = 0 regardless of Y or A
+                self.registerConstraint(
+                    self.PlanarFunc([1,0,0,0], Relation.EQ)
+                )
+                # Still enforce the bounds on A
+                self.registerConstraint(
+                    self.PlanarFunc([0,0,1,alphaMax], Relation.LEQ)
+                )
+                self.registerConstraint(
+                    self.PlanarFunc([0,0,1,alphaMin], Relation.GEQ)
+                )
+            else:
+                self._initLEQ(X, Y, A)
         else:
-            raise ValueError(f"Invalid ARelationOption: {aRelationOption}. Must be one of {list(ARelationOption)}")
+            raise ValueError(f"Invalid Relation: {Relation}. Must be one of {list(Relation)}")
         
     def computePlane(self, points):
         """
@@ -99,6 +159,26 @@ class RealBinaryIndicator(_Formulation):
         
         return np.array([normal[0], normal[1], normal[2], d])
     
+    class PlanarFunc:
+        """
+        A class to represent a planar function defined by three points in 3D space.
+        """
+        def __init__(self, C:np.ndarray, Relation:Relation):
+            self.C = C
+            self.Relation = Relation
+            
+        def __call__(self, X, Y, A):
+            if self.Relation == Relation.GEQ:
+                return self.C[0] * X + self.C[1] * Y + self.C[2] * A >= self.C[3]
+            elif self.Relation == Relation.LEQ:
+                return self.C[0] * X + self.C[1] * Y + self.C[2] * A <= self.C[3]
+            elif self.Relation == Relation.EQ:
+                return self.C[0] * X + self.C[1] * Y + self.C[2] * A == self.C[3]
+            else:
+                raise ValueError(f"Invalid Relation: {self.Relation}. Must be one of {list(Relation)}")
+            
+
+
     def _constructConstraint(self, X, Y, A, points, violatingPoint, name=None) -> pmo.constraint:
         """
         A function to construct a constraint based on the points defining a plane and a violating point.
@@ -118,16 +198,17 @@ class RealBinaryIndicator(_Formulation):
         name: str (optional)
             The name of the constraint to be created. If None, a default name will be generated.
         """
+        self.points.append(points)
         C = self.computePlane(points)
 
         predictedValue = C[:3] @ np.array(violatingPoint)
         if predictedValue < C[3]:
             self.registerConstraint(
-                lambda X, Y, A, c=C: c[0] * X + c[1] * Y + c[2] * A >= c[3],
+                self.PlanarFunc(C, Relation.GEQ)
             )
         else:
             self.registerConstraint(
-                lambda X, Y, A, c=C: c[0] * X + c[1] * Y + c[2] * A <= c[3],
+                self.PlanarFunc(C, Relation.LEQ)
             )
 
         #TODO: Finish converting other formuations over to the _Formulation object. Then keep debugging this.

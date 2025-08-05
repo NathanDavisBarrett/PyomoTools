@@ -1,4 +1,4 @@
-from ..RealBinaryIndicator import RealBinaryIndicator, ARelationOption
+from ..RealBinaryIndicator import RealBinaryIndicator, Relation
 from ....base.Solvers import DefaultSolver
 
 import pyomo.kernel as pmo
@@ -16,14 +16,14 @@ def test_Construction():
         alphaPrime=alphaPrime,
         alphaMin=alphaMin,
         alphaMax=alphaMax,
-        aRelationOption=ARelationOption.GEQ
+        aRelation=Relation.GEQ
     )
-    
-    # import matplotlib
-    # matplotlib.use('TkAgg')
-    # m.rbi.Plot()
 
-def executePointTest(Xval, YVal, Aval, alphaPrime, alphaMin, alphaMax, aRelationOption:ARelationOption,enforceBinary:bool=False)-> bool:
+    import matplotlib
+    matplotlib.use('TkAgg')
+    m.rbi.Plot()
+
+def executePointTest(Xval, YVal, Aval, alphaPrime, alphaMin, alphaMax, aRelation:Relation,enforceBinary:bool=False)-> bool:
     """
     A function to test whether or not a given point is feasible in the generated model.
     """
@@ -47,7 +47,7 @@ def executePointTest(Xval, YVal, Aval, alphaPrime, alphaMin, alphaMax, aRelation
         alphaPrime=alphaPrime,
         alphaMin=alphaMin,
         alphaMax=alphaMax,
-        aRelationOption=aRelationOption
+        aRelation=aRelation
     )
 
     m.FixConstraints = pmo.constraint_list([
@@ -87,7 +87,7 @@ def test_GEQ_ExtremePoints():
         (1,1,alphaMax)
     ]
     for Xval, YVal, Aval in extremePoints:
-        assert executePointTest(Xval, YVal, Aval, alphaPrime, alphaMin, alphaMax, ARelationOption.GEQ, enforceBinary=True)
+        assert executePointTest(Xval, YVal, Aval, alphaPrime, alphaMin, alphaMax, Relation.GEQ, enforceBinary=True)
 
 def test_LEQ_ExtremePoints():
     """
@@ -109,7 +109,7 @@ def test_LEQ_ExtremePoints():
         (0,0,alphaMax)
     ]
     for Xval, YVal, Aval in extremePoints:
-        assert executePointTest(Xval, YVal, Aval, alphaPrime, alphaMin, alphaMax, ARelationOption.LEQ, enforceBinary=True)
+        assert executePointTest(Xval, YVal, Aval, alphaPrime, alphaMin, alphaMax, Relation.LEQ, enforceBinary=True)
 
 def test_GEQ_FeasibleInteriorPoints():
     alphaPrime = 5.0
@@ -130,7 +130,7 @@ def test_GEQ_FeasibleInteriorPoints():
         (0,1,a2),
     ]
     for Xval, YVal, Aval in points:
-        assert executePointTest(Xval, YVal, Aval, alphaPrime, alphaMin, alphaMax, ARelationOption.GEQ, enforceBinary=False)
+        assert executePointTest(Xval, YVal, Aval, alphaPrime, alphaMin, alphaMax, Relation.GEQ, enforceBinary=False)
 
 def test_LEQ_FeasibleInteriorPoints():
     alphaPrime = 5.0
@@ -151,7 +151,7 @@ def test_LEQ_FeasibleInteriorPoints():
         (1,1,a2),
     ]
     for Xval, YVal, Aval in points:
-        assert executePointTest(Xval, YVal, Aval, alphaPrime, alphaMin, alphaMax, ARelationOption.LEQ, enforceBinary=False)
+        assert executePointTest(Xval, YVal, Aval, alphaPrime, alphaMin, alphaMax, Relation.LEQ, enforceBinary=False)
 
 
 def test_GEQ_InfeasibleInteriorPoints():
@@ -168,7 +168,7 @@ def test_GEQ_InfeasibleInteriorPoints():
         (0,1,alphaPrime)
     ]
     for Xval, YVal, Aval in points:
-        assert not executePointTest(Xval, YVal, Aval, alphaPrime, alphaMin, alphaMax, ARelationOption.GEQ, enforceBinary=False)
+        assert not executePointTest(Xval, YVal, Aval, alphaPrime, alphaMin, alphaMax, Relation.GEQ, enforceBinary=False)
 
 def test_LEQ_InfeasibleInteriorPoints():
     alphaPrime = 5.0
@@ -185,4 +185,4 @@ def test_LEQ_InfeasibleInteriorPoints():
     ]
 
     for Xval, YVal, Aval in points:
-        assert not executePointTest(Xval, YVal, Aval, alphaPrime, alphaMin, alphaMax, ARelationOption.LEQ, enforceBinary=False)
+        assert not executePointTest(Xval, YVal, Aval, alphaPrime, alphaMin, alphaMax, Relation.LEQ, enforceBinary=False)

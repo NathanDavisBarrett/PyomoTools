@@ -42,6 +42,7 @@ class _Formulation(pmo.block, ABC):
             self.bounds[name] = bounds
 
         self.constraintFunctions = []
+        self.constraintNames = []
 
     def Setup(self):
         """
@@ -65,12 +66,28 @@ class _Formulation(pmo.block, ABC):
         if name is None:
             name = f"Constraint_{len(self.constraintFunctions)}"
 
+        self.constraintNames.append(name)
+
         expr = func(*self.originalVariables)
         if isinstance(expr, (bool, np.bool_)):
             return
         else:
             setattr(self, name, pmo.constraint(expr))
         
+
+    def generateStandaloneModel(self) -> pmo.block:
+        model = pmo.block()
+        for name in self.variableNames:
+            setattr(model,name, pmo.variable(lb=self.bounds[name][0], ub=self.bounds[name][1]))
+
+        for i in range(len(self.constraintFunctions)):
+            func = self.constraintFunctions[i]
+            expr = func(*[getattr(model, name) for name in self.variableNames])
+            if isinstance(expr, (bool, np.bool_)):
+                continue
+            else:
+                setattr(model, self.constraintNames[i], pmo.constraint(expr))
+        return model
 
 
     def _testFeasibility(self, point:NDArray[np.float64])-> bool:
@@ -92,7 +109,7 @@ class _Formulation(pmo.block, ABC):
     
         
 
-    def Plot(self, numSamples=10000, color='blue', dotSize=10):
+    def Plot_Scatter(self, numSamples=10000, color='blue', dotSize=10):
         """
         A method to plot the formulation. Plotting is handled by randomly sampling combinations of variables, testing their feasibility, and plotting the feasible points.
 
@@ -236,6 +253,14 @@ class _Formulation(pmo.block, ABC):
             update_plot(initial_slider_values)
 
         plt.show()
+
+    def Plot(self):
+        standaloneModel = self.generateStandaloneModel()
+
+        from ..MatrixRepresentation import MatrixRepresentation
+        mr = MatrixRepresentation(standaloneModel)
+        mr.Plot()
+
 
 
 
