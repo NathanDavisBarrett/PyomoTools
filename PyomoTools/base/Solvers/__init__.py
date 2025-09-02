@@ -1,3 +1,3 @@
-from .DefaultSolver import DefaultSolver
+from .DefaultSolver import DefaultSolver, EditDefaultSolver
 from .TimedIncumbentSolver import TimedIncumbentSolver
 from .WrappedSolver import WrappedSolver
