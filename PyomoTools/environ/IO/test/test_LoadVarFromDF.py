@@ -103,20 +103,20 @@ def test_3D_IndexedVar():
     model.X = pyo.Var(model.MySet1 * model.MySet2 * model.MySet3)
 
     lTotal = len(s1) * len(s2) * len(s3)
-    S1 = [None for l in range(lTotal)]
-    S2 = [None for l in range(lTotal)]
-    S3 = [None for l in range(lTotal)]
-    flatVals = [None for l in range(lTotal)]
+    S1 = [None for _ in range(lTotal)]
+    S2 = [None for _ in range(lTotal)]
+    S3 = [None for _ in range(lTotal)]
+    flatVals = [None for _ in range(lTotal)]
 
-    l = 0
+    m = 0
     for i, ii in enumerate(s1):
         for j, jj in enumerate(s2):
             for k, kk in enumerate(s3):
-                S1[l] = ii
-                S2[l] = jj
-                S3[l] = kk
-                flatVals[l] = vals[i, j, k]
-                l += 1
+                S1[m] = ii
+                S2[m] = jj
+                S3[m] = kk
+                flatVals[m] = vals[i, j, k]
+                m += 1
 
     df = pd.DataFrame(
         data={"Index_1": S1, "Index_2": S2, "Index_3": S3, "Value": flatVals}
@@ -125,7 +125,7 @@ def test_3D_IndexedVar():
     LoadVarSolutionFromDF(model.X, df)
 
     newFlatVals = np.zeros(lTotal)
-    for l in range(lTotal):
-        idx = (S1[l], S2[l], S3[l])
-        newFlatVals[l] = model.X[idx].value
+    for m in range(lTotal):
+        idx = (S1[m], S2[m], S3[m])
+        newFlatVals[m] = model.X[idx].value
     assert np.allclose(flatVals, newFlatVals)

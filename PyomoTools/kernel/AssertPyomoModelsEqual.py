@@ -2,8 +2,6 @@ import pyomo.kernel as pmo
 import numpy as np
 import warnings
 
-from typing import Union
-
 
 def SendErrorWarning(str, error, warning):
     if error:
@@ -97,7 +95,7 @@ def AssertPyomoModelsEqual(
         v1 = getattr(model1, v)
         v2 = getattr(model2, v)
 
-        if type(v1) != type(v2):
+        if type(v1) is not type(v2):
             if error or warning:
                 SendErrorWarning(
                     f"Variable {v} has a different type in model1 ({type(v1)}) and model2 ({type(v2)}).",
@@ -221,12 +219,10 @@ def AssertPyomoModelsEqual(
         subBlock1 = getattr(model1, subBlock)
         subBlock2 = getattr(model2, subBlock)
 
-        if type(subBlock1) != type(subBlock2):
+        if type(subBlock1) is not type(subBlock2):
             if error or warning:
                 SendErrorWarning(
-                    "Sub-block {} has a different type in model1 ({type(subBlock1)}) and model2 ({type(subBlock2)}).".format(
-                        subBlock
-                    ),
+                    f"Sub-block {subBlock} has a different type in model1 ({type(subBlock1)}) and model2 ({type(subBlock2)}).",
                     error,
                     warning,
                 )

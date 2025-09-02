@@ -1,5 +1,4 @@
 import pyomo.kernel as pmo
-import numpy as np
 
 from ..DoubleSidedBigM import DoubleSidedBigM
 from ....base.Solvers import DefaultSolver

@@ -1,3 +1,5 @@
+from ..base.GenerateExpressionString import GenerateExpressionStrings
+
 import pyomo.kernel as pmo
 import re
 import numpy as np
@@ -27,8 +29,6 @@ sin = np.sin
 cos = np.cos
 tan = np.tan
 sqrt = np.sqrt
-
-from ..base.GenerateExpressionString import GenerateExpressionStrings
 
 
 class InfeasibilityData:
@@ -75,7 +75,7 @@ class InfeasibilityData:
                 lhs_val = eval(lhs)
                 rhs_val = eval(rhs)
                 eval_str = f"{lhs_val} {divider} {rhs_val}"
-            except:
+            except Exception:
                 eval_str = "Evaluation Error"
 
         return [
@@ -233,7 +233,7 @@ class InfeasibilityReportWidget(QMainWindow):
 
             try:
                 obj = getattr(model, c_name)
-            except:
+            except Exception:
                 if ".DCC_constraint" in c_name:
                     continue
                 warnings.warn(f'Warning! Could not locate child object named "{c}"')
@@ -319,7 +319,7 @@ class InfeasibilityReportWidget(QMainWindow):
 
         try:
             body_value = pmo.value(body, exception=self.ignoreIncompleteConstraints)
-        except:
+        except Exception:
             return self.ignoreIncompleteConstraints
 
         if body_value is None:

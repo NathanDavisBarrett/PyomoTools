@@ -1,6 +1,4 @@
 import pyomo.environ as pyo
-import re
-
 from .LoadVarSolutionFromDF import LoadVarSolutionFromDF
 
 

@@ -140,7 +140,6 @@ def ConditionalGeq(
                 idx = idx[0]
             Amin, Amax = GetBounds(A, A_bounds, idx)
             alpha_val = alpha[idx] if isinstance(alpha, dict) else alpha
-            epsilon_val = epsilon[idx] if isinstance(epsilon, dict) else epsilon
             return X[idx] * (alpha_val - Amin) <= A[idx] - Amin
 
         setattr(model, upperBoundName, pyo.Constraint(itrSet, rule=upperBoundFunc))

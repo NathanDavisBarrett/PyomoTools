@@ -1,3 +1,5 @@
+from ..base.GenerateExpressionString import GenerateExpressionStrings
+
 import pyomo.environ as pyo
 import re
 import numpy as np
@@ -10,8 +12,6 @@ sin = np.sin
 cos = np.cos
 tan = np.tan
 sqrt = np.sqrt
-
-from ..base.GenerateExpressionString import GenerateExpressionStrings
 
 
 class InfeasibilityReport:
@@ -62,7 +62,7 @@ class InfeasibilityReport:
         for c in model.component_objects(pyo.Constraint, active=True):
             try:
                 constr = getattr(model, str(c))
-            except:
+            except Exception:
                 if ".DCC_constraint" in str(c):
                     continue
                 print(f'Warning! Could not locate constraint named "{c}"')

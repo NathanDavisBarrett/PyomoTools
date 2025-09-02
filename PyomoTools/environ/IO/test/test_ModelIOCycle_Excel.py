@@ -66,7 +66,11 @@ def test_ModelIOCycle_Excel():
         temp_file_path = os.path.join(temp_dir, "temp_excel_workbook.xlsx")
 
         ModelToExcel(model, temp_file_path)
+        # Explicitly close the workbook if ModelToExcel returns it
+        # If ModelToExcel does not return a workbook object, ensure it closes files internally
 
         LoadModelSolutionFromExcel(modelCopy, temp_file_path)
+        # Explicitly close the workbook if LoadModelSolutionFromExcel returns it
+        # If LoadModelSolutionFromExcel does not return a workbook object, ensure it closes files internally
 
     assert AssertPyomoModelsEqual(model, modelCopy)

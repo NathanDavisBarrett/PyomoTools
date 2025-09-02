@@ -1,5 +1,4 @@
 import pyomo.kernel as pmo
-import numpy as np
 
 from ..ConstrainContiguousBinarySeries import ConstrainContiguousBinarySeries
 from PyomoTools.base.Solvers import DefaultSolver, WrappedSolver

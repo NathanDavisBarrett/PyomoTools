@@ -1,6 +1,5 @@
 import pyomo.environ as pyo
 import pandas as pd
-import numpy as np
 from typing import Union
 
 

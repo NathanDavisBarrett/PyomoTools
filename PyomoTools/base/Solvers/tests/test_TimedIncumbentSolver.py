@@ -41,7 +41,7 @@ def test_FindFirstIncumbent():
     model.c2 = pyo.Constraint(expr=sum(model.x[i] for i in model.I) <= 500)
 
     solver = TimedIncumbentSolver(0)
-    result = solver.solve(model, tee=True)
+    solver.solve(model, tee=True)
 
     # assert that a solution was found:
     #   This will only happen if a value is loaded into model.x[2]

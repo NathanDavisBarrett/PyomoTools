@@ -2,9 +2,6 @@ import pyomo.kernel as pmo
 
 # Now import the interactive infeasibility report
 from ..InfeasibilityReport_Interactive import (
-    InfeasibilityData,
-    BlockData,
-    InfeasibilityReportWidget,
     InfeasibilityReport_Interactive,
 )
 

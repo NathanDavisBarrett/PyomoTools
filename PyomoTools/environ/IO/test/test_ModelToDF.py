@@ -61,9 +61,9 @@ def test_ModelToDF():
     indices = result["V1"]["Index"].to_numpy()
     dfVals = result["V1"]["Value"].to_numpy()
     newVals = np.zeros(len(s1))
-    for l in range(len(indices)):
-        ii = indices[l]
-        val = dfVals[l]
+    for m in range(len(indices)):
+        ii = indices[m]
+        val = dfVals[m]
         i = s1.index(ii)
         newVals[i] = val
     assert np.allclose(val1, newVals)
@@ -80,18 +80,18 @@ def test_ModelToDF():
     assert np.allclose(val2, newVals)
 
     assert isinstance(result["V3"], pd.DataFrame)
-    for l in range(3):
-        assert f"Index_{l+1}" in result["V3"].columns
+    for m in range(3):
+        assert f"Index_{m+1}" in result["V3"].columns
     newVals = np.zeros((len(s1), len(s2), len(s3)))
     I1s = result["V3"]["Index_1"].to_numpy()
     I2s = result["V3"]["Index_2"].to_numpy()
     I3s = result["V3"]["Index_3"].to_numpy()
     dfVals = result["V3"]["Value"].to_numpy()
-    for l in range(len(I1s)):
-        ii = I1s[l]
-        jj = I2s[l]
-        kk = I3s[l]
-        val = dfVals[l]
+    for m in range(len(I1s)):
+        ii = I1s[m]
+        jj = I2s[m]
+        kk = I3s[m]
+        val = dfVals[m]
 
         i = s1.index(ii)
         j = s2.index(jj)

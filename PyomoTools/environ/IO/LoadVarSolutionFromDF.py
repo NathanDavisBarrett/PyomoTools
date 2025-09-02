@@ -36,12 +36,12 @@ def LoadVarSolutionFromDF(var: pyo.Var, df: pd.DataFrame):
                 idxArrays = [df[idxNames[i]].to_numpy() for i in range(idxDim)]
                 valArray = df["Value"].to_numpy()
                 for i in range(len(valArray)):
-                    ii = tuple(idxArrays[l][i] for l in range(idxDim))
+                    ii = tuple(idxArrays[j][i] for j in range(idxDim))
                     var[ii].value = valArray[i]
         else:
             iis = df["Index"].to_numpy()
             vals = df["Value"].to_numpy()
-            for l in range(len(vals)):
-                var[iis[l]].value = vals[l]
+            for i in range(len(vals)):
+                var[iis[i]].value = vals[i]
     else:
         var.value = df

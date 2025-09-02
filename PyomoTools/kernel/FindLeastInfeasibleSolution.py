@@ -1,6 +1,5 @@
 import pyomo.kernel as pmo
 from pyomo.opt import TerminationCondition
-from copy import deepcopy
 from enum import Enum
 from collections import deque
 
@@ -73,7 +72,6 @@ def AugmentModel(model: pmo.block):
             return None
 
     for c in model.children():
-        varName = c.local_name
         if isinstance(c, (pmo.variable_list, pmo.variable_tuple)):
             lowerBoundConstrs.extend(
                 [pmo.constraint(lowerBound(c[i])) for i in range(len(c))]

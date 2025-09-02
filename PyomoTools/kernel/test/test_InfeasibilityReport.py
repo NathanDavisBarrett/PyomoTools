@@ -1,7 +1,5 @@
 import pyomo.kernel as pmo
 
-import difflib
-
 from ..InfeasibilityReport import InfeasibilityReport
 
 

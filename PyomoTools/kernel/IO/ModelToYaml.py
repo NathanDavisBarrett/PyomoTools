@@ -1,4 +1,7 @@
+from .ModelToDict import ModelToDict
+
 import yaml
+import pyomo.kernel as pmo
 
 
 def represent_tuple(dumper, data):
@@ -6,9 +9,6 @@ def represent_tuple(dumper, data):
 
 
 yaml.add_representer(tuple, represent_tuple)
-
-import pyomo.kernel as pmo
-from .ModelToDict import ModelToDict
 
 
 def ModelToYaml(model: pmo.block, fileName: str):

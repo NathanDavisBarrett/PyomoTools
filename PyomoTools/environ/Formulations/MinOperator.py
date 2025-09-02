@@ -1,6 +1,5 @@
 import pyomo.environ as pyo
 from typing import Union
-import numpy as np
 
 from .MaxOperator import MaxOperator
 

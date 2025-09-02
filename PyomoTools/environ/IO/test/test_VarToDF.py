@@ -168,7 +168,7 @@ def test_3D_IndexedVar():
     assert "Index_1" in result.columns
     assert "Index_2" in result.columns
     assert "Index_3" in result.columns
-    assert not ("Index_4" in result.columns)
+    assert "Index_4" not in result.columns
 
     newVals = np.zeros((numVars, 3, 3))
 
@@ -177,11 +177,11 @@ def test_3D_IndexedVar():
     I3s = result["Index_3"].to_numpy()
     dfVals = result["Value"].to_numpy()
 
-    for l in range(len(I1s)):
-        i = I1s[l]
-        j = I2s[l]
-        k = I3s[l]
-        val = dfVals[l]
+    for i in range(len(I1s)):
+        i = I1s[i]
+        j = I2s[i]
+        k = I3s[i]
+        val = dfVals[i]
 
         jj = ["A", "B", "C"].index(j)
         kk = ["!", "@", "#"].index(k)

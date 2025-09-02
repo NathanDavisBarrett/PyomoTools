@@ -51,7 +51,7 @@ def executePointTest(
 
     m.A = pyo.Var()
 
-    constraints = RealBinaryIndicator(
+    RealBinaryIndicator(
         m,
         m.X,
         m.Y,
@@ -255,7 +255,7 @@ def test_EdgeCases_GEQ():
     m.Y = pyo.Var(domain=pyo.Binary)
     m.A = pyo.Var(bounds=(alphaMin, alphaMax))
 
-    constraints = RealBinaryIndicator(
+    RealBinaryIndicator(
         m,
         m.X,
         m.Y,
@@ -282,7 +282,7 @@ def test_EdgeCases_GEQ():
     m.Y = pyo.Var(domain=pyo.Binary)
     m.A = pyo.Var(bounds=(alphaMin, alphaMax))
 
-    constraints = RealBinaryIndicator(
+    RealBinaryIndicator(
         m,
         m.X,
         m.Y,

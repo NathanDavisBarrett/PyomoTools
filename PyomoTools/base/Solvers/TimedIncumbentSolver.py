@@ -1,4 +1,3 @@
-import pyomo.environ as pyo
 from pyomo.opt import SolverFactory
 import time
 import gurobipy as gp

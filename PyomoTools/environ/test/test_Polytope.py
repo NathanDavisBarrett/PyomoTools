@@ -1,8 +1,6 @@
 import pyomo.environ as pyo
-import numpy as np
 
 from ..Polytope import Polytope
-from ...base.Solvers import DefaultSolver
 
 
 def test_2D(plot=False):

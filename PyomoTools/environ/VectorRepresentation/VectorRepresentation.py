@@ -6,10 +6,8 @@ from pyomo.core.expr.numeric_expr import (
     SumExpression,
 )
 from pyomo.core.expr.numvalue import NumericConstant
-from pyomo.core.base.var import ScalarVar
-from pyomo.core.expr.current import identify_variables
 
-from scipy.sparse import coo_matrix, csr_matrix
+from scipy.sparse import csr_matrix
 import numpy as np
 
 
@@ -90,19 +88,19 @@ class VectorRepresentation:
                     else:
                         idx_str = f"{var}_{idx}"
                     lb, ub = var[idx].bounds
-                    if lb != None:
+                    if lb is not None:
                         setattr(
                             model, f"{idx_str}_LB", pyo.Constraint(expr=var[idx] >= lb)
                         )
-                    if ub != None:
+                    if ub is not None:
                         setattr(
                             model, f"{idx_str}_UB", pyo.Constraint(expr=var[idx] <= ub)
                         )
             else:
                 lb, ub = var.bounds
-                if lb != None:
+                if lb is not None:
                     setattr(model, f"{var}_LB", pyo.Constraint(expr=var >= lb))
-                if ub != None:
+                if ub is not None:
                     setattr(model, f"{var}_UB", pyo.Constraint(expr=var <= ub))
 
         self._Construct_VAR_VEC()

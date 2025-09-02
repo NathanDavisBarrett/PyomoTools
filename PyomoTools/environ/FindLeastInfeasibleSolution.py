@@ -143,7 +143,7 @@ def FindLeastInfeasibleSolution(
             def lowerConstr(_, *idx):
                 try:
                     constri = constr[idx]
-                except:
+                except Exception:
                     # Sometimes, if an iterate is nullified using pyo.Constraint.Feasible, it won't show up here.
                     return pyo.Constraint.Feasible
 
@@ -155,7 +155,7 @@ def FindLeastInfeasibleSolution(
             def upperConstr(_, *idx):
                 try:
                     constri = constr[idx]
-                except:
+                except Exception:
                     # Sometimes, if an iterate is nullified using pyo.Constraint.Feasible, it won't show up here.
                     return pyo.Constraint.Feasible
 

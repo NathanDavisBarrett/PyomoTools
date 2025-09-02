@@ -1,7 +1,7 @@
 import pyomo.environ as pyo
 import numpy as np
 import enum
-from typing import Union, Tuple
+from typing import Union
 from warnings import warn
 
 

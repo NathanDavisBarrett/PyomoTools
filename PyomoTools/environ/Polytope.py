@@ -3,12 +3,11 @@ import pyomo.environ as pyo
 from .VectorRepresentation.VectorRepresentation import VectorRepresentation
 
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from matplotlib.widgets import Slider
 
 import numpy as np
 from scipy.spatial import ConvexHull as scipy_ConvexHull
-from scipy.sparse import coo_matrix, csr_matrix, vstack, hstack
+from scipy.sparse import csr_matrix, vstack, hstack
 
 
 class Polytope:

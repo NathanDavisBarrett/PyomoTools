@@ -1,9 +1,6 @@
 import pyomo.environ as pyo
-import pyomo.kernel as pmo
 import numpy as np
 import warnings
-
-from typing import Union
 
 
 def SendErrorWarning(str, error, warning):

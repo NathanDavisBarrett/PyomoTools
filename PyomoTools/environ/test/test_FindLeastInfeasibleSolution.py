@@ -31,35 +31,6 @@ def test_SimpleProblem_KnownSolution():
     model.c3 = pyo.Constraint(expr=model.y <= -model.x + 2)
     model.c4 = pyo.Constraint(expr=model.y <= 1)
 
-    FindLeastInfeasibleSolution(model, DefaultSolver("LP"), tee=True)
-
-    # Any point on the line y = x in 1 <= x <= 2 is a valid solution.
-
-    xVal = pyo.value(model.x)
-    yVal = pyo.value(model.y)
-
-    assert np.allclose(
-        [
-            xVal,
-        ],
-        [
-            yVal,
-        ],
-    )
-    assert xVal >= -0.9999999
-    assert xVal <= 2.0000001
-
-
-def test_SimpleProblem_KnownSolution():
-    model = pyo.ConcreteModel()
-    model.x = pyo.Var()
-    model.y = pyo.Var()
-
-    model.c1 = pyo.Constraint(expr=model.y >= 2)
-    model.c2 = pyo.Constraint(expr=model.y >= -model.x + 4)
-    model.c3 = pyo.Constraint(expr=model.y <= -model.x + 2)
-    model.c4 = pyo.Constraint(expr=model.y <= 1)
-
     FindLeastInfeasibleSolution(model, DefaultSolver("QP"), tee=True)
 
     # Any point on the line y = x in 1 <= x <= 2 is a valid solution.

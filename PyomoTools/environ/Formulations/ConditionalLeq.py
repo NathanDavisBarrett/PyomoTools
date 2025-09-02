@@ -122,7 +122,6 @@ def ConditionalLeq(
         Amin, Amax = GetBounds(A, A_bounds)
 
         # Transform A using A' = 2*alpha - A
-        Aprime = TransformA(A, alpha)
         AminPrime = TransformA(
             Amax, alpha
         )  # Note: max becomes min after transformation
@@ -156,7 +155,6 @@ def ConditionalLeq(
                 idx = idx[0]
             Amin, Amax = GetBounds(A, A_bounds, idx)
             alpha_val = alpha[idx] if isinstance(alpha, dict) else alpha
-            epsilon_val = epsilon[idx] if isinstance(epsilon, dict) else epsilon
             return X[idx] * (Amax - alpha_val) <= Amax - A[idx]
 
         setattr(model, upperBoundName, pyo.Constraint(itrSet, rule=upperBoundFunc))

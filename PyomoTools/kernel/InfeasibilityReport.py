@@ -1,3 +1,5 @@
+from ..base.GenerateExpressionString import GenerateExpressionStrings
+
 import pyomo.kernel as pmo
 import re
 import numpy as np
@@ -10,8 +12,6 @@ sin = np.sin
 cos = np.cos
 tan = np.tan
 sqrt = np.sqrt
-
-from ..base.GenerateExpressionString import GenerateExpressionStrings
 
 
 class InfeasibilityReport:
@@ -69,7 +69,7 @@ class InfeasibilityReport:
             fullName = c.name
             try:
                 obj = getattr(model, cName)
-            except:
+            except Exception:
                 if ".DCC_constraint" in cName:
                     continue
                 warnings.warn(f'Warning! Could not locate child object named "{c}"')

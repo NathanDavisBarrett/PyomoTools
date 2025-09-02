@@ -1,7 +1,5 @@
 import pyomo.environ as pyo
 
-import difflib
-
 from ..InfeasibilityReport import InfeasibilityReport
 
 

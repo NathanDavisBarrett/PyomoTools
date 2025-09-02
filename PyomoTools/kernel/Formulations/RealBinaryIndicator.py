@@ -3,7 +3,7 @@ import pyomo.kernel as pmo
 import numpy as np
 import enum
 
-from typing import Union, Tuple
+from typing import Union
 from warnings import warn
 
 from ._Formulation import _Formulation
