@@ -2,17 +2,19 @@ import pyomo.environ as pyo
 from typing import Union
 import numpy as np
 
+
 def MaxOperator(
-        model:pyo.ConcreteModel,
-        A:Union[pyo.Var, pyo.Expression],
-        B:Union[pyo.Var, pyo.Expression],
-        C:Union[pyo.Var, pyo.Expression],
-        bBounds:Union[tuple,dict]=None,
-        cBounds:Union[tuple,dict]=None,
-        Y:pyo.Var=None,
-        itrSet:pyo.Set=None,
-        allowMaximizationPotential:bool=True,
-        relationshipBaseName:str=None):
+    model: pyo.ConcreteModel,
+    A: Union[pyo.Var, pyo.Expression],
+    B: Union[pyo.Var, pyo.Expression],
+    C: Union[pyo.Var, pyo.Expression],
+    bBounds: Union[tuple, dict] = None,
+    cBounds: Union[tuple, dict] = None,
+    Y: pyo.Var = None,
+    itrSet: pyo.Set = None,
+    allowMaximizationPotential: bool = True,
+    relationshipBaseName: str = None,
+):
     """
     A function to model the following relationship in MILP or LP form:
 
@@ -65,36 +67,39 @@ def MaxOperator(
         bound0Name = f"{relationshipBaseName}_bound0"
         bound1Name = f"{relationshipBaseName}_bound1"
         if itrSet is None:
-            setattr(model,bound0Name,pyo.Constraint(expr=A >= B))
-            bound0 = getattr(model,bound0Name)
+            setattr(model, bound0Name, pyo.Constraint(expr=A >= B))
+            bound0 = getattr(model, bound0Name)
 
-            setattr(model,bound1Name,pyo.Constraint(expr=A >= C))
-            bound1 = getattr(model,bound1Name)
+            setattr(model, bound1Name, pyo.Constraint(expr=A >= C))
+            bound1 = getattr(model, bound1Name)
         else:
-            def bound0Func(model,*idx):
+
+            def bound0Func(model, *idx):
                 if len(idx) == 1:
                     idx = idx[0]
                 return A[idx] >= B[idx]
-            setattr(model,bound0Name,pyo.Constraint(itrSet,rule=bound0Func))
-            bound0 = getattr(model,bound0Name)
 
-            def bound1Func(model,*idx):
+            setattr(model, bound0Name, pyo.Constraint(itrSet, rule=bound0Func))
+            bound0 = getattr(model, bound0Name)
+
+            def bound1Func(model, *idx):
                 if len(idx) == 1:
                     idx = idx[0]
                 return A[idx] >= C[idx]
-            setattr(model,bound1Name,pyo.Constraint(itrSet,rule=bound1Func))
-            bound1 = getattr(model,bound1Name)
-        
-        return (bound0,bound1)
+
+            setattr(model, bound1Name, pyo.Constraint(itrSet, rule=bound1Func))
+            bound1 = getattr(model, bound1Name)
+
+        return (bound0, bound1)
     else:
         if Y is None:
             Yname = f"{relationshipBaseName}_Y"
             if itrSet is None:
-                setattr(model,Yname,pyo.Var(domain=pyo.Binary))
-                Y = getattr(model,Yname)
+                setattr(model, Yname, pyo.Var(domain=pyo.Binary))
+                Y = getattr(model, Yname)
             else:
-                setattr(model,Yname,pyo.Var(itrSet,domain=pyo.Binary))
-                Y = getattr(model,Yname)
+                setattr(model, Yname, pyo.Var(itrSet, domain=pyo.Binary))
+                Y = getattr(model, Yname)
 
         c0Name = f"{relationshipBaseName}_constraint0"
         c1Name = f"{relationshipBaseName}_constraint1"
@@ -104,68 +109,84 @@ def MaxOperator(
         c5Name = f"{relationshipBaseName}_constraint5"
 
         if itrSet is None:
-            M = np.max([np.abs(bBounds[1] - cBounds[0]),np.abs(cBounds[1] - bBounds[0])]) #The maximum difference between B and C
+            M = np.max(
+                [np.abs(bBounds[1] - cBounds[0]), np.abs(cBounds[1] - bBounds[0])]
+            )  # The maximum difference between B and C
 
-            setattr(model,c0Name,pyo.Constraint(expr=B-C <= M * Y))
-            c0 = getattr(model,c0Name)
+            setattr(model, c0Name, pyo.Constraint(expr=B - C <= M * Y))
+            c0 = getattr(model, c0Name)
 
-            setattr(model,c1Name,pyo.Constraint(expr=C-B <= M * (1-Y)))
-            c1 = getattr(model,c1Name)
+            setattr(model, c1Name, pyo.Constraint(expr=C - B <= M * (1 - Y)))
+            c1 = getattr(model, c1Name)
 
-            setattr(model,c2Name,pyo.Constraint(expr=A >= B))
-            c2 = getattr(model,c2Name)
+            setattr(model, c2Name, pyo.Constraint(expr=A >= B))
+            c2 = getattr(model, c2Name)
 
-            setattr(model,c3Name,pyo.Constraint(expr=A >= C))
-            c3 = getattr(model,c3Name)
+            setattr(model, c3Name, pyo.Constraint(expr=A >= C))
+            c3 = getattr(model, c3Name)
 
-            setattr(model,c4Name,pyo.Constraint(expr=A <= B + M * (1-Y)))
-            c4 = getattr(model,c4Name)
+            setattr(model, c4Name, pyo.Constraint(expr=A <= B + M * (1 - Y)))
+            c4 = getattr(model, c4Name)
 
-            setattr(model,c5Name,pyo.Constraint(expr=A <= C + M * Y))
-            c5 = getattr(model,c5Name)
+            setattr(model, c5Name, pyo.Constraint(expr=A <= C + M * Y))
+            c5 = getattr(model, c5Name)
         else:
-            M = {idx: np.max([np.abs(bBounds[idx][1] - cBounds[idx][0]),np.abs(cBounds[idx][1] - bBounds[idx][0])]) for idx in itrSet} #The maximum difference between b and c
+            M = {
+                idx: np.max(
+                    [
+                        np.abs(bBounds[idx][1] - cBounds[idx][0]),
+                        np.abs(cBounds[idx][1] - bBounds[idx][0]),
+                    ]
+                )
+                for idx in itrSet
+            }  # The maximum difference between b and c
 
-            def c0Func(model,*idx):
+            def c0Func(model, *idx):
                 if len(idx) == 1:
                     idx = idx[0]
                 return B[idx] - C[idx] <= M[idx] * Y[idx]
-            setattr(model,c0Name,pyo.Constraint(itrSet,rule=c0Func))
-            c0 = getattr(model,c0Name)
 
-            def c1Func(model,*idx):
+            setattr(model, c0Name, pyo.Constraint(itrSet, rule=c0Func))
+            c0 = getattr(model, c0Name)
+
+            def c1Func(model, *idx):
                 if len(idx) == 1:
                     idx = idx[0]
-                return C[idx] - B[idx] <= M[idx] * (1-Y[idx])
-            setattr(model,c1Name,pyo.Constraint(itrSet,rule=c1Func))
-            c1 = getattr(model,c1Name)
+                return C[idx] - B[idx] <= M[idx] * (1 - Y[idx])
 
-            def c2Func(model,*idx):
+            setattr(model, c1Name, pyo.Constraint(itrSet, rule=c1Func))
+            c1 = getattr(model, c1Name)
+
+            def c2Func(model, *idx):
                 if len(idx) == 1:
                     idx = idx[0]
                 return A[idx] >= B[idx]
-            setattr(model,c2Name,pyo.Constraint(itrSet,rule=c2Func))
-            c2 = getattr(model,c2Name)
 
-            def c3Func(model,*idx):
+            setattr(model, c2Name, pyo.Constraint(itrSet, rule=c2Func))
+            c2 = getattr(model, c2Name)
+
+            def c3Func(model, *idx):
                 if len(idx) == 1:
                     idx = idx[0]
                 return A[idx] >= C[idx]
-            setattr(model,c3Name,pyo.Constraint(itrSet,rule=c3Func))
-            c3 = getattr(model,c3Name)
 
-            def c4Func(model,*idx):
+            setattr(model, c3Name, pyo.Constraint(itrSet, rule=c3Func))
+            c3 = getattr(model, c3Name)
+
+            def c4Func(model, *idx):
                 if len(idx) == 1:
                     idx = idx[0]
-                return A[idx] <= B[idx] + M[idx] * (1-Y[idx])
-            setattr(model,c4Name,pyo.Constraint(itrSet,rule=c4Func))
-            c4 = getattr(model,c4Name)
+                return A[idx] <= B[idx] + M[idx] * (1 - Y[idx])
 
-            def c5Func(model,*idx):
+            setattr(model, c4Name, pyo.Constraint(itrSet, rule=c4Func))
+            c4 = getattr(model, c4Name)
+
+            def c5Func(model, *idx):
                 if len(idx) == 1:
                     idx = idx[0]
                 return A[idx] <= C[idx] + M[idx] * Y[idx]
-            setattr(model,c5Name,pyo.Constraint(itrSet,rule=c5Func))
-            c5 = getattr(model,c5Name)
-        
-        return (c0,c1,c2,c3,c4,c5)
+
+            setattr(model, c5Name, pyo.Constraint(itrSet, rule=c5Func))
+            c5 = getattr(model, c5Name)
+
+        return (c0, c1, c2, c3, c4, c5)

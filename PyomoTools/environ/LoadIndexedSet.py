@@ -1,9 +1,10 @@
 import pyomo.environ as pyo
 
-def LoadIndexedSet(model:pyo.ConcreteModel,setName:str,setDict:dict):
+
+def LoadIndexedSet(model: pyo.ConcreteModel, setName: str, setDict: dict):
     """
     A function to define an indexed set (dict mapping keys to pyomo Set objects) within a pyomo model.
-    
+
     Once defined you will be able to access each subset using the following syntax:
         model.setName[index]
 
@@ -16,8 +17,8 @@ def LoadIndexedSet(model:pyo.ConcreteModel,setName:str,setDict:dict):
     setDict: dict (index -> iterable)
         A dict mapping each key to the contents of each corresponding subset.
     """
-    setattr(model,setName,{})
+    setattr(model, setName, {})
     for key in setDict:
-        attrName = "{}_{}".format(setName,key)
-        setattr(model,attrName,pyo.Set(initialize=setDict[key]))
-        getattr(model,setName)[key] = getattr(model,attrName)
+        attrName = "{}_{}".format(setName, key)
+        setattr(model, attrName, pyo.Set(initialize=setDict[key]))
+        getattr(model, setName)[key] = getattr(model, attrName)

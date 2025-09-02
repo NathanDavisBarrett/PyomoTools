@@ -2,18 +2,20 @@ import pyomo.kernel as pmo
 import numpy as np
 
 from ..ConstrainContiguousBinarySeries import ConstrainContiguousBinarySeries
-from PyomoTools.base.Solvers import DefaultSolver,WrappedSolver
+from PyomoTools.base.Solvers import DefaultSolver, WrappedSolver
 
-def GetBinarySeries(n: int, mx:bool=True):
+
+def GetBinarySeries(n: int, mx: bool = True):
     m = pmo.block()
     m.X = pmo.variable_list([pmo.variable(domain=pmo.Binary) for _ in range(n)])
-    
+
     if mx:
         m.obj = pmo.objective(expr=sum(m.X), sense=pmo.maximize)
     else:
         m.obj = pmo.objective(expr=sum(m.X), sense=pmo.minimize)
 
     return m
+
 
 def executeSetIndicesTest(n: int, start: int, end: int):
     m = GetBinarySeries(n)
@@ -28,6 +30,7 @@ def executeSetIndicesTest(n: int, start: int, end: int):
     assert results.solver.termination_condition == pmo.TerminationCondition.optimal
 
     from PyomoTools.kernel import InfeasibilityReport
+
     rep = InfeasibilityReport(m, onlyInfeasibilities=False)
     rep.WriteFile("infeasibilityReport.txt")
 
@@ -38,14 +41,18 @@ def executeSetIndicesTest(n: int, start: int, end: int):
         else:
             assert m.X[i].value == 0, f"X[{i}] should be 0 but is {m.X[i].value}"
 
+
 def test_MiddleIndices():
     executeSetIndicesTest(10, 3, 6)
+
 
 def test_ZeroStart():
     executeSetIndicesTest(10, 0, 5)
 
+
 def test_TerminalEnd():
     executeSetIndicesTest(10, 5, 9)
+
 
 def test_Alternating():
     n = 10
@@ -60,6 +67,7 @@ def test_Alternating():
     results = solver.solve(m, tee=False)
     assert len(results.solution) == 0, "Expected zero solutions"
 
+
 def test_FillBetween():
     n = 10
     m = GetBinarySeries(n)
@@ -73,8 +81,9 @@ def test_FillBetween():
     assert results.solver.termination_condition == pmo.TerminationCondition.optimal
 
     # Check if the binary variables are set correctly
-    for i in range(3,9):
+    for i in range(3, 9):
         assert m.X[i].value == 1, f"X[{i}] should be 1 but is {m.X[i].value}"
+
 
 def test_DetermineStartStop():
     n = 10

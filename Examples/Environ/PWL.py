@@ -12,16 +12,18 @@ Where X and Y are continuous variables and Z is a binary variable.
 
 import pyomo.environ as pyo
 import numpy as np
-from PyomoTools.Formulations import PWL
+from PyomoTools.environ.Formulations import PWL
 from PyomoTools.base.Solvers import DefaultSolver
-from PyomoTools.IO import ModelToExcel
+from PyomoTools.environ.IO import ModelToExcel
 
-def myFunc(x,magnitude,shift):
+
+def myFunc(x, magnitude, shift):
     return magnitude * np.sin(x - shift)
 
+
 myMag = 5
-myShift=np.pi/2
-xBounds = (0,2*np.pi)
+myShift = np.pi / 2
+xBounds = (0, 2 * np.pi)
 
 model = pyo.ConcreteModel()
 model.X = pyo.Var(bounds=xBounds)
@@ -34,13 +36,17 @@ PWL(
     yVar=model.Y,
     xBounds=xBounds,
     numSegments=6,
-    args=(myMag,),           #Note that I could have passed these both as args or both as kwargs.
-    kwargs={"shift":myShift},#...................................................................
-    verify=True
+    args=(
+        myMag,
+    ),  # Note that I could have passed these both as args or both as kwargs.
+    kwargs={
+        "shift": myShift
+    },  # ...................................................................
+    verify=True,
 )
 
-model.obj = pyo.Objective(expr=model.Y,sense=pyo.maximize)
+model.obj = pyo.Objective(expr=model.Y, sense=pyo.maximize)
 solver = DefaultSolver("MILP")
 solver.solve(model)
 
-ModelToExcel(model,"PWLSolution.xlsx")
+ModelToExcel(model, "PWLSolution.xlsx")

@@ -1,9 +1,10 @@
 import pyomo.environ as pyo
 
-def Load2DIndexedSet(model,setName,setDict):
+
+def Load2DIndexedSet(model, setName, setDict):
     """
     A function to define a 2-leveled indexed set (dict mapping keys to another dict mapping keys to pyomo Set objects) within a pyomo model.
-    
+
     Once defined you will be able to access each subset using the following syntax:
         model.setName[index1][index2]
 
@@ -16,10 +17,10 @@ def Load2DIndexedSet(model,setName,setDict):
     setDict: dict (non-iterable -> iterable)
         A dict mapping each key to another dict mapping each sub-key the contents of each corresponding subset.
     """
-    setattr(model,setName,{})
+    setattr(model, setName, {})
     for k1 in setDict:
-        getattr(model,setName)[k1] = {}
+        getattr(model, setName)[k1] = {}
         for k2 in setDict[k1]:
-            attrName = "{}_{}_{}".format(setName,k1,k2)
-            setattr(model,attrName,pyo.Set(initialize=setDict[k1][k2]))
-            getattr(model,setName)[k1][k2] = getattr(model,attrName)
+            attrName = "{}_{}_{}".format(setName, k1, k2)
+            setattr(model, attrName, pyo.Set(initialize=setDict[k1][k2]))
+            getattr(model, setName)[k1][k2] = getattr(model, attrName)

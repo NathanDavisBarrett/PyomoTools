@@ -1,28 +1,31 @@
 import pyomo.kernel as pmo
-from typing import Union,Tuple
+from typing import Union, Tuple
 
 from .MaxOperator import MaxOperator
 
+
 class MinOperator(MaxOperator):
-    def __init__(self,
-        A:Union[pmo.variable, pmo.expression],
-        B:Union[pmo.variable, pmo.expression],
-        C:Union[pmo.variable, pmo.expression],
-        bBounds:Tuple[float,float]=None,
-        cBounds:Tuple[float,float]=None,
-        Y:pmo.variable=None,
-        allowMinimizationPotential:bool=True):
+    def __init__(
+        self,
+        A: Union[pmo.variable, pmo.expression],
+        B: Union[pmo.variable, pmo.expression],
+        C: Union[pmo.variable, pmo.expression],
+        bBounds: Tuple[float, float] = None,
+        cBounds: Tuple[float, float] = None,
+        Y: pmo.variable = None,
+        allowMinimizationPotential: bool = True,
+    ):
         """
         A function to model the following relationship in MILP or LP form:
 
             A = min(B,C)
 
-        Note that this is equivalent to 
+        Note that this is equivalent to
 
             -A = max(-B,-C)
 
         which is exactly how this will be implemented in the model.
-        
+
 
         Parameters
         ----------
@@ -45,9 +48,15 @@ class MinOperator(MaxOperator):
         opposite_cBounds = None
 
         if bBounds is not None:
-            opposite_bBounds = (-bBounds[1] if bBounds[1] is not None else None,-bBounds[0] if bBounds[0] is not None else None)
+            opposite_bBounds = (
+                -bBounds[1] if bBounds[1] is not None else None,
+                -bBounds[0] if bBounds[0] is not None else None,
+            )
         if cBounds is not None:
-            opposite_cBounds = (-cBounds[1] if cBounds[1] is not None else None,-cBounds[0] if cBounds[0] is not None else None)
+            opposite_cBounds = (
+                -cBounds[1] if cBounds[1] is not None else None,
+                -cBounds[0] if cBounds[0] is not None else None,
+            )
 
         super().__init__(
             A=-A,
@@ -56,5 +65,5 @@ class MinOperator(MaxOperator):
             bBounds=opposite_bBounds,
             cBounds=opposite_cBounds,
             Y=Y,
-            allowMaximizationPotential=allowMinimizationPotential
+            allowMaximizationPotential=allowMinimizationPotential,
         )

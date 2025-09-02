@@ -4,6 +4,7 @@ from typing import Union, Tuple
 
 from ._Formulation import _Formulation
 
+
 class ConditionalGeq(_Formulation):
     """
     A block to model the following relationship in MILP form:
@@ -16,7 +17,7 @@ class ConditionalGeq(_Formulation):
         A <= alpha - epsilon  if X == 0
         A >= alpha            if X == 1
 
-    where 
+    where
     * A is a variable (real or integer)
     * X is a binary
     * alpha is a constant parameter
@@ -28,10 +29,10 @@ class ConditionalGeq(_Formulation):
     1        2---3
     |       /   /
     |      /   /
-    |     /   /        
+    |     /   /
     |    /   /
     |   /   /
-    0  0---1 
+    0  0---1
     |--mn--e-a---mx---> A
 
     Anywhere in this parallelogram is a feasible solution to the (linear relaxation of the) relationship.
@@ -48,13 +49,15 @@ class ConditionalGeq(_Formulation):
     0-2: X <= (A - Amin)/(alpha - Amin)
     1-3: X >= (A - (alpha - epsilon))/(Amax - (alpha - epsilon))
     """
-    def __init__(self,
-        A:Union[pmo.variable, pmo.expression],
-        alpha:float,
-        X:Union[pmo.variable, pmo.expression]=None,
-        epsilon:float=1e-5,
-        A_bounds:Tuple[float,float]=None
-        ):
+
+    def __init__(
+        self,
+        A: Union[pmo.variable, pmo.expression],
+        alpha: float,
+        X: Union[pmo.variable, pmo.expression] = None,
+        epsilon: float = 1e-5,
+        A_bounds: Tuple[float, float] = None,
+    ):
         """
         Parameters
         ----------
@@ -69,13 +72,7 @@ class ConditionalGeq(_Formulation):
         A_bounds: Tuple[float,float] (optional, Default=None)
             A tuple indicating the minimum and maximum possible values of "A". This is required if "A" does not have intrinsic bounds already defined or if "A" is an expression.
         """
-        super().__init__(
-            ["A", "X"],
-            {
-                "A": (A, A_bounds),
-                "X": (X, (0, 1))
-            }
-        )
+        super().__init__(["A", "X"], {"A": (A, A_bounds), "X": (X, (0, 1))})
 
         if X is None:
             self.X = X = pmo.variable(domain=pmo.Binary)
@@ -83,18 +80,19 @@ class ConditionalGeq(_Formulation):
 
         Amin, Amax = self.GetBounds(A, A_bounds)
 
-        assert Amin <= Amax - epsilon, "The minimum bound of A must be less than or equal to the maximum bound of A minus epsilon."
+        assert (
+            Amin <= Amax - epsilon
+        ), "The minimum bound of A must be less than or equal to the maximum bound of A minus epsilon."
 
         self.registerConstraint(
-            lambda A, X: X * (alpha - Amin) <= A - Amin,
-            name="UpperBound"
+            lambda A, X: X * (alpha - Amin) <= A - Amin, name="UpperBound"
         )
         self.registerConstraint(
             lambda A, X: X * (Amax - (alpha - epsilon)) >= A - (alpha - epsilon),
-            name="LowerBound"
+            name="LowerBound",
         )
 
-    def GetBounds(self,A,A_bounds) -> Tuple[float,float]:
+    def GetBounds(self, A, A_bounds) -> Tuple[float, float]:
         """
         Get the bounds of "A" based on the provided bounds and the relationship defined by this block.
 
@@ -121,12 +119,11 @@ class ConditionalGeq(_Formulation):
         if Amax is None:
             Amax = A.ub
 
-        assert Amin is not None, "Unable to determine the lower bound of A. Please provide A_bounds or ensure A has intrinsic bounds."
-        assert Amax is not None, "Unable to determine the upper bound of A. Please provide A_bounds or ensure A has intrinsic bounds."
+        assert (
+            Amin is not None
+        ), "Unable to determine the lower bound of A. Please provide A_bounds or ensure A has intrinsic bounds."
+        assert (
+            Amax is not None
+        ), "Unable to determine the upper bound of A. Please provide A_bounds or ensure A has intrinsic bounds."
 
         return Amin, Amax
-
-        
-
-
-        

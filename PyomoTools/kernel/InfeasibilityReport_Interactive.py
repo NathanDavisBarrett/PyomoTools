@@ -12,13 +12,12 @@ from PyQt5.QtWidgets import (
     QTreeWidget,
     QTreeWidgetItem,
     QTextEdit,
-    QPushButton,
     QSplitter,
     QCheckBox,
     QLabel,
     QFrame,
 )
-from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
 
 # If there are any non-standard functions to be evaluated in the constraints, we'll define them here.

@@ -4,6 +4,7 @@ import pyomo.environ as pyo
 import numpy as np
 import pandas as pd
 
+
 def test_NonIndexedVar():
     model = pyo.ConcreteModel()
 
@@ -14,15 +15,23 @@ def test_NonIndexedVar():
 
     result = VarToDF(model.X)
 
-    assert isinstance(result,float)
-    assert np.allclose([result,],[testVal,])
+    assert isinstance(result, float)
+    assert np.allclose(
+        [
+            result,
+        ],
+        [
+            testVal,
+        ],
+    )
+
 
 def test_1D_IndexedVar():
     model = pyo.ConcreteModel()
 
     numVars = 5
     model.MySet = pyo.Set(initialize=list(range(numVars)))
-    vals = np.random.uniform(0,1,numVars)
+    vals = np.random.uniform(0, 1, numVars)
 
     model.X = pyo.Var(model.MySet)
     for i in model.MySet:
@@ -30,7 +39,7 @@ def test_1D_IndexedVar():
 
     result = VarToDF(model.X)
 
-    assert isinstance(result,pd.DataFrame)
+    assert isinstance(result, pd.DataFrame)
     cols = result.columns
     assert "Index" in cols
     assert "Value" in cols
@@ -40,15 +49,16 @@ def test_1D_IndexedVar():
 
     newVals = np.zeros(numVars)
     newVals[indices] = dfVals
-    
-    assert np.allclose(vals,newVals)
+
+    assert np.allclose(vals, newVals)
+
 
 def test_1D_IndexedVar_2():
     model = pyo.ConcreteModel()
 
     numVars = 5
     model.MySet = pyo.Set(initialize=[(i,) for i in range(numVars)])
-    vals = np.random.uniform(0,1,numVars)
+    vals = np.random.uniform(0, 1, numVars)
 
     model.X = pyo.Var(model.MySet)
     for i in model.MySet:
@@ -56,7 +66,7 @@ def test_1D_IndexedVar_2():
 
     result = VarToDF(model.X)
 
-    assert isinstance(result,pd.DataFrame)
+    assert isinstance(result, pd.DataFrame)
     cols = result.columns
     assert "Index" in cols
     assert "Value" in cols
@@ -66,26 +76,27 @@ def test_1D_IndexedVar_2():
 
     newVals = np.zeros(numVars)
     newVals[indices] = dfVals
-    
-    assert np.allclose(vals,newVals)
+
+    assert np.allclose(vals, newVals)
+
 
 def test_2D_IndexedVar():
     model = pyo.ConcreteModel()
 
     numVars = 5
     model.MySet1 = pyo.Set(initialize=list(range(numVars)))
-    model.MySet2 = pyo.Set(initialize=["A","B","C"])
-    vals = np.random.uniform(0,1,(numVars,3))
+    model.MySet2 = pyo.Set(initialize=["A", "B", "C"])
+    vals = np.random.uniform(0, 1, (numVars, 3))
 
     model.X = pyo.Var(model.MySet1 * model.MySet2)
     for i in model.MySet1:
         for j in model.MySet2:
-            jj = ["A","B","C"].index(j)
-            model.X[i,j].value = vals[i,jj]
+            jj = ["A", "B", "C"].index(j)
+            model.X[i, j].value = vals[i, jj]
 
     result = VarToDF(model.X)
 
-    assert isinstance(result,pd.DataFrame)
+    assert isinstance(result, pd.DataFrame)
 
     for i in model.MySet1:
         assert i in result.columns
@@ -93,76 +104,74 @@ def test_2D_IndexedVar():
     for j in model.MySet2:
         assert j in result.index
 
-    newVals = np.zeros((numVars,3))
+    newVals = np.zeros((numVars, 3))
     for i in model.MySet1:
         for j in model.MySet2:
-            jj = ["A","B","C"].index(j)
-            newVals[i,jj] = result.loc[j][i]
-    
-    assert np.allclose(vals,newVals)
+            jj = ["A", "B", "C"].index(j)
+            newVals[i, jj] = result.loc[j][i]
+
+    assert np.allclose(vals, newVals)
+
 
 def test_2D_IndexedVar_MissingData():
     model = pyo.ConcreteModel()
 
-    combos = [
-        (0,"A"),
-        (1,"B"),
-        (2,"C")
-    ]
-    vals = np.random.uniform(0,1,3)
+    combos = [(0, "A"), (1, "B"), (2, "C")]
+    vals = np.random.uniform(0, 1, 3)
 
     model.X = pyo.Var(combos)
-    for i,idx in enumerate(combos):
+    for i, idx in enumerate(combos):
         model.X[idx].value = vals[i]
 
     result = VarToDF(model.X)
 
-    assert isinstance(result,pd.DataFrame)
+    assert isinstance(result, pd.DataFrame)
 
-    for i in [0,1,2]:
+    for i in [0, 1, 2]:
         assert i in result.columns
 
-    for j in ["A","B","C"]:
+    for j in ["A", "B", "C"]:
         assert j in result.index
 
     newVals = np.zeros(3)
-    for i in [0,1,2]:
-        for j in ["A","B","C"]:
+    for i in [0, 1, 2]:
+        for j in ["A", "B", "C"]:
             val = result.loc[j][i]
-            if (i,j) not in combos:
+            if (i, j) not in combos:
                 assert pd.isna(val)
             else:
                 newVals[i] = val
-    
-    assert np.allclose(vals,newVals)
+
+    assert np.allclose(vals, newVals)
+
 
 def test_3D_IndexedVar():
     model = pyo.ConcreteModel()
 
     numVars = 5
     model.MySet1 = pyo.Set(initialize=list(range(numVars)))
-    model.MySet2 = pyo.Set(initialize=["A","B","C"])
-    model.MySet3 = pyo.Set(initialize=["!","@","#"])
-    vals = np.random.uniform(0,1,(numVars,3,3))
+    model.MySet2 = pyo.Set(initialize=["A", "B", "C"])
+    model.MySet3 = pyo.Set(initialize=["!", "@", "#"])
+    vals = np.random.uniform(0, 1, (numVars, 3, 3))
 
     model.X = pyo.Var(model.MySet1 * model.MySet2 * model.MySet3)
     for i in model.MySet1:
         for j in model.MySet2:
-            jj = ["A","B","C"].index(j)
+            jj = ["A", "B", "C"].index(j)
             for k in model.MySet3:
-                kk = ["!","@","#"].index(k)
-                model.X[i,j,k].value = vals[i,jj,kk]
+                kk = ["!", "@", "#"].index(k)
+                model.X[i, j, k].value = vals[i, jj, kk]
 
     result = VarToDF(model.X)
 
-    assert isinstance(result,pd.DataFrame)
+    assert isinstance(result, pd.DataFrame)
     assert "Index_1" in result.columns
     assert "Index_2" in result.columns
     assert "Index_3" in result.columns
     assert not ("Index_4" in result.columns)
 
-    newVals = np.zeros((numVars,3,3))
- 
+    newVals = np.zeros((numVars, 3, 3))
+
     I1s = result["Index_1"].to_numpy()
     I2s = result["Index_2"].to_numpy()
     I3s = result["Index_3"].to_numpy()
@@ -174,9 +183,9 @@ def test_3D_IndexedVar():
         k = I3s[l]
         val = dfVals[l]
 
-        jj = ["A","B","C"].index(j)
-        kk = ["!","@","#"].index(k)
+        jj = ["A", "B", "C"].index(j)
+        kk = ["!", "@", "#"].index(k)
 
-        newVals[i,jj,kk] = val
-    
-    assert np.allclose(vals,newVals)
+        newVals[i, jj, kk] = val
+
+    assert np.allclose(vals, newVals)

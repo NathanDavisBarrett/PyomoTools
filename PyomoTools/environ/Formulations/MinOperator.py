@@ -6,16 +6,17 @@ from .MaxOperator import MaxOperator
 
 
 def MinOperator(
-        model:pyo.ConcreteModel,
-        A:Union[pyo.Var, pyo.Expression],
-        B:Union[pyo.Var, pyo.Expression],
-        C:Union[pyo.Var, pyo.Expression],
-        bBounds:Union[tuple,dict]=None,
-        cBounds:Union[tuple,dict]=None,
-        Y:pyo.Var=None,
-        itrSet:pyo.Set=None,
-        allowMinimizationPotential:bool=True,
-        relationshipBaseName:str=None):
+    model: pyo.ConcreteModel,
+    A: Union[pyo.Var, pyo.Expression],
+    B: Union[pyo.Var, pyo.Expression],
+    C: Union[pyo.Var, pyo.Expression],
+    bBounds: Union[tuple, dict] = None,
+    cBounds: Union[tuple, dict] = None,
+    Y: pyo.Var = None,
+    itrSet: pyo.Set = None,
+    allowMinimizationPotential: bool = True,
+    relationshipBaseName: str = None,
+):
     """
     A function to model the following relationship in MILP or LP form:
 
@@ -64,23 +65,23 @@ def MinOperator(
         Cname = str(C)
         relationshipBaseName = f"{Aname}_{Bname}_{Cname}_MinOperator"
 
-    #The following relation is always true:
+    # The following relation is always true:
     #   if A = min(B,C),
     #   then -A = max(-B,-C)
-    #Thus, we will simply call the MaxOperator with this transformation
+    # Thus, we will simply call the MaxOperator with this transformation
 
     if itrSet is None:
         newA = -A
         newB = -B
         newC = -C
-        newBBounds = (-bBounds[1],-bBounds[0])
-        newCBounds = (-cBounds[1],-cBounds[0])
+        newBBounds = (-bBounds[1], -bBounds[0])
+        newCBounds = (-cBounds[1], -cBounds[0])
     else:
         newA = {idx: -A[idx] for idx in itrSet}
         newB = {idx: -B[idx] for idx in itrSet}
         newC = {idx: -C[idx] for idx in itrSet}
-        newBBounds = {idx: (-bBounds[idx][1],-bBounds[idx][0]) for idx in itrSet}
-        newCBounds = {idx: (-cBounds[idx][1],-cBounds[idx][0]) for idx in itrSet}
+        newBBounds = {idx: (-bBounds[idx][1], -bBounds[idx][0]) for idx in itrSet}
+        newCBounds = {idx: (-cBounds[idx][1], -cBounds[idx][0]) for idx in itrSet}
 
     return MaxOperator(
         model=model,
@@ -91,12 +92,9 @@ def MinOperator(
         cBounds=newCBounds,
         Y=Y,
         itrSet=itrSet,
-        allowMaximizationPotential=allowMinimizationPotential, #These potentials are equivalent in the new formulation.
-        relationshipBaseName=relationshipBaseName
+        allowMaximizationPotential=allowMinimizationPotential,  # These potentials are equivalent in the new formulation.
+        relationshipBaseName=relationshipBaseName,
     )
-
-
-
 
     # if not allowMinimizationPotential:
     #     bound0Name = f"{relationshipBaseName}_bound0"
@@ -121,7 +119,7 @@ def MinOperator(
     #             return A[idx] <= C[idx]
     #         setattr(model,bound1Name,pyo.Constraint(itrSet,rule=bound1Func))
     #         bound1 = getattr(model,bound1Name)
-        
+
     #     return (bound0,bound1)
     # else:
     #     if Y is None:
@@ -204,5 +202,5 @@ def MinOperator(
     #             return A[idx] >= C[idx] - M[idx] * Y[idx]
     #         setattr(model,c5Name,pyo.Constraint(itrSet,rule=c5Func))
     #         c5 = getattr(model,c5Name)
-        
+
     #     return (c0,c1,c2,c3,c4,c5)

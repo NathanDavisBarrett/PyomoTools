@@ -3,7 +3,7 @@ import re
 import numpy as np
 from collections.abc import Iterable
 
-#If there are any non-standard functions to be evaluated in the constraints, we'll define them here.
+# If there are any non-standard functions to be evaluated in the constraints, we'll define them here.
 log = np.log
 exp = np.exp
 sin = np.sin
@@ -12,6 +12,7 @@ tan = np.tan
 sqrt = np.sqrt
 
 from ..base.GenerateExpressionString import GenerateExpressionStrings
+
 
 class InfeasibilityReport:
     """
@@ -38,12 +39,19 @@ class InfeasibilityReport:
 
     Members:
     --------
-    exprs: 
+    exprs:
         A dict mapping the name of each violated constraint (str) to either that constraint's expression string or another dict that maps that constraint's indices to those indices' expression strings
-    substitutedExprs: 
+    substitutedExprs:
         A dict with the same structure as exprs but with the value of each variable substituted into the expression string.
     """
-    def __init__(self, model:pyo.ConcreteModel,aTol=1e-3,onlyInfeasibilities=True,ignoreIncompleteConstraints=False):
+
+    def __init__(
+        self,
+        model: pyo.ConcreteModel,
+        aTol=1e-3,
+        onlyInfeasibilities=True,
+        ignoreIncompleteConstraints=False,
+    ):
         self.exprs = {}
         self.substitutedExprs = {}
         self.onlyInfeasibilities = onlyInfeasibilities
@@ -53,23 +61,25 @@ class InfeasibilityReport:
 
         for c in model.component_objects(pyo.Constraint, active=True):
             try:
-                constr = getattr(model,str(c))
+                constr = getattr(model, str(c))
             except:
                 if ".DCC_constraint" in str(c):
                     continue
-                print(f"Warning! Could not locate constraint named \"{c}\"")
+                print(f'Warning! Could not locate constraint named "{c}"')
                 continue
 
-            if isinstance(constr,Iterable):
-                #This constraint is indexed
+            if isinstance(constr, Iterable):
+                # This constraint is indexed
                 for index in constr:
-                    if not self.TestFeasibility(constr[index],aTol=aTol):
-                        self.AddInfeasibility(name=str(c),index=index,constr=constr[index])
+                    if not self.TestFeasibility(constr[index], aTol=aTol):
+                        self.AddInfeasibility(
+                            name=str(c), index=index, constr=constr[index]
+                        )
             else:
-                if not self.TestFeasibility(constr,aTol=aTol):
-                    self.AddInfeasibility(name=c,constr=constr)
+                if not self.TestFeasibility(constr, aTol=aTol):
+                    self.AddInfeasibility(name=c, constr=constr)
 
-    def TestFeasibility(self,constr:pyo.Constraint,aTol=1e-5):
+    def TestFeasibility(self, constr: pyo.Constraint, aTol=1e-5):
         """
         A function to test whether or not a given constraint is violated by the solution contained within it.
 
@@ -89,11 +99,13 @@ class InfeasibilityReport:
 
         lower = constr.lower
         upper = constr.upper
-        body = pyo.value(constr.body, exception=self.ignoreIncompleteConstraints) #pyo.value(constr,exception=not self.ignoreIncompleteConstraints)
+        body = pyo.value(
+            constr.body, exception=self.ignoreIncompleteConstraints
+        )  # pyo.value(constr,exception=not self.ignoreIncompleteConstraints)
 
         if body is None:
             return self.ignoreIncompleteConstraints
-        
+
         if lower is not None:
             if body < lower - aTol:
                 return False
@@ -102,7 +114,7 @@ class InfeasibilityReport:
                 return False
         return True
 
-    def AddInfeasibility(self,name:str,constr:pyo.Constraint,index:object=None):
+    def AddInfeasibility(self, name: str, constr: pyo.Constraint, index: object = None):
         """
         A function to add a violated constraint to this report
 
@@ -117,12 +129,16 @@ class InfeasibilityReport:
         """
         self.numInfeas += 1
         if index is None:
-            self.exprs[name], self.substitutedExprs[name] = GenerateExpressionStrings(constr.expr)
+            self.exprs[name], self.substitutedExprs[name] = GenerateExpressionStrings(
+                constr.expr
+            )
         else:
             if name not in self.exprs:
                 self.exprs[name] = {}
                 self.substitutedExprs[name] = {}
-            self.exprs[name][index], self.substitutedExprs[name][index] = GenerateExpressionStrings(constr.expr)
+            self.exprs[name][index], self.substitutedExprs[name][index] = (
+                GenerateExpressionStrings(constr.expr)
+            )
 
     def Iterator(self):
         """
@@ -132,57 +148,79 @@ class InfeasibilityReport:
         """
         for c in self.exprs:
             cName = str(c)
-            if isinstance(self.exprs[c],dict):
+            if isinstance(self.exprs[c], dict):
                 for i in self.exprs[c]:
-                    varName = "{}[{}]:".format(cName,i)
+                    varName = "{}[{}]:".format(cName, i)
 
-                    spaces = " "*len(varName)
-                    shortenedStr = re.sub(' +', ' ', self.substitutedExprs[c][i])
-                    dividers = ["==","<=",">="]
+                    spaces = " " * len(varName)
+                    shortenedStr = re.sub(" +", " ", self.substitutedExprs[c][i])
+                    dividers = ["==", "<=", ">="]
                     divider = None
                     for d in dividers:
                         if d in shortenedStr:
                             divider = d
                             break
-                    
+
                     if divider is None:
-                        raise Exception(f"The following expression is not well posed as a constraint!\n{shortenedStr}")
-                    
+                        raise Exception(
+                            f"The following expression is not well posed as a constraint!\n{shortenedStr}"
+                        )
+
                     divIndex = shortenedStr.index(divider)
                     lhs = shortenedStr[:divIndex].lstrip()
-                    rhs = shortenedStr[divIndex+2:].lstrip()
+                    rhs = shortenedStr[divIndex + 2 :].lstrip()
                     lhsVal = eval(lhs)
                     rhsVal = eval(rhs)
 
                     evalStr = f"{lhsVal} {divider} {rhsVal}"
 
-                    yield "{} {}\n{} {}\n{} {}\n{} {}".format(varName,self.exprs[c][i],spaces,self.substitutedExprs[c][i],spaces,shortenedStr,spaces,evalStr)
+                    yield "{} {}\n{} {}\n{} {}\n{} {}".format(
+                        varName,
+                        self.exprs[c][i],
+                        spaces,
+                        self.substitutedExprs[c][i],
+                        spaces,
+                        shortenedStr,
+                        spaces,
+                        evalStr,
+                    )
             else:
-                spaces = " "*len(cName)
-                shortenedStr = re.sub(' +', ' ', self.substitutedExprs[c])
-                dividers = ["==","<=",">="]
+                spaces = " " * len(cName)
+                shortenedStr = re.sub(" +", " ", self.substitutedExprs[c])
+                dividers = ["==", "<=", ">="]
                 divider = None
                 for d in dividers:
                     if d in shortenedStr:
                         divider = d
                         break
-                
+
                 if divider is None:
-                    raise Exception(f"The following expression is not well posed as a constraint!\n{shortenedStr}")
-                
+                    raise Exception(
+                        f"The following expression is not well posed as a constraint!\n{shortenedStr}"
+                    )
+
                 divIndex = shortenedStr.index(divider)
                 lhs = shortenedStr[:divIndex].lstrip()
-                rhs = shortenedStr[divIndex+2:].lstrip()
+                rhs = shortenedStr[divIndex + 2 :].lstrip()
                 lhsVal = eval(lhs)
                 rhsVal = eval(rhs)
 
                 evalStr = f"{lhsVal} {divider} {rhsVal}"
 
-                yield "{}: {}\n{}  {}\n{}  {}\n{}  {}".format(cName,self.exprs[c],spaces,self.substitutedExprs[c],spaces,shortenedStr,spaces,evalStr)
+                yield "{}: {}\n{}  {}\n{}  {}\n{}  {}".format(
+                    cName,
+                    self.exprs[c],
+                    spaces,
+                    self.substitutedExprs[c],
+                    spaces,
+                    shortenedStr,
+                    spaces,
+                    evalStr,
+                )
 
     def __len__(self):
         return self.numInfeas
-    
+
     def __str__(self):
         """
         A function to convert this report to a string.
@@ -193,14 +231,13 @@ class InfeasibilityReport:
         """
         lines = []
         for infeas in self.Iterator():
-                lines.append(infeas)
-                lines.append("\n\n")
-        return '\n'.join(lines)
+            lines.append(infeas)
+            lines.append("\n\n")
+        return "\n".join(lines)
 
-    def WriteFile(self,fileName:str):
+    def WriteFile(self, fileName: str):
         """
         A function to write the output to a file.
         """
-        with open(fileName,"w") as f:
+        with open(fileName, "w") as f:
             f.write(str(self))
-        

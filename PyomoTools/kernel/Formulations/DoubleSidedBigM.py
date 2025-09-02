@@ -3,22 +3,25 @@ from typing import Union
 
 from ._Formulation import _Formulation
 
+
 class DoubleSidedBigM(_Formulation):
-    def __init__(self,
-        A:Union[pmo.variable, pmo.expression],
-        B:Union[pmo.variable, pmo.expression],
-        Bmin:float,
-        Bmax:float,
-        C:Union[pmo.variable, pmo.expression, float]=0.0,
-        X:Union[pmo.variable, pmo.expression]=None,
-        includeUpperBounds:bool=True,
-        includeLowerBounds:bool=True):
+    def __init__(
+        self,
+        A: Union[pmo.variable, pmo.expression],
+        B: Union[pmo.variable, pmo.expression],
+        Bmin: float,
+        Bmax: float,
+        C: Union[pmo.variable, pmo.expression, float] = 0.0,
+        X: Union[pmo.variable, pmo.expression] = None,
+        includeUpperBounds: bool = True,
+        includeLowerBounds: bool = True,
+    ):
         """
         A block to model the following relationship in MILP form:
 
             A = X * B + C
 
-        where 
+        where
         * A is a Real number
         * B is a Real number
         * C is a Real number, binary, or parameter
@@ -43,7 +46,7 @@ class DoubleSidedBigM(_Formulation):
         includeLowerBounds: bool (optional, Default=True)
             An indication of whether or not you'd like to instantiate the lower bounds of this relationship. Only mark this as False if you're certain that "A" will never be minimized.
         """
-        if isinstance(C, (float,int)):
+        if isinstance(C, (float, int)):
             Cbounds = (C, C)
         elif isinstance(C, pmo.variable):
             Cbounds = (C.lb, C.ub)
@@ -52,31 +55,27 @@ class DoubleSidedBigM(_Formulation):
         super().__init__(
             ["B", "X", "A", "C"],
             {
-                "A": (A, (min(Bmin,Cbounds[0]), max(Bmax,Cbounds[1]))),
+                "A": (A, (min(Bmin, Cbounds[0]), max(Bmax, Cbounds[1]))),
                 "B": (B, (Bmin, Bmax)),
                 "X": (X, (0, 1)),
                 "C": (C, Cbounds),
-            }
+            },
         )
 
         if includeLowerBounds:
             self.registerConstraint(
-                lambda B, X, A, C: A >= Bmin * X + C,
-                name="LowerBound0"
+                lambda B, X, A, C: A >= Bmin * X + C, name="LowerBound0"
             )
             self.registerConstraint(
-                lambda B, X, A, C: A >= B + Bmax * (X - 1) + C,
-                name="LowerBound1"
+                lambda B, X, A, C: A >= B + Bmax * (X - 1) + C, name="LowerBound1"
             )
-        
+
         if includeUpperBounds:
             self.registerConstraint(
-                lambda B, X, A, C: A <= Bmax * X + C,
-                name="UpperBound0"
+                lambda B, X, A, C: A <= Bmax * X + C, name="UpperBound0"
             )
             self.registerConstraint(
-                lambda B, X, A, C: A <= B + Bmin * (X - 1) + C,
-                name="UpperBound1"
+                lambda B, X, A, C: A <= B + Bmin * (X - 1) + C, name="UpperBound1"
             )
 
     def Setup(self):
@@ -87,5 +86,3 @@ class DoubleSidedBigM(_Formulation):
         if self.originalVariables[Xindex] is None:
             self.X = pmo.variable(domain=pmo.Binary)
             self.originalVariables[Xindex] = self.X
-
-        

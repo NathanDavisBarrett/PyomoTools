@@ -10,15 +10,15 @@ s.t. A = max(B,C)
 """
 
 import pyomo.environ as pyo
-from PyomoTools.Formulations import MaxOperator
+from PyomoTools.environ.Formulations import MaxOperator
 from PyomoTools.base.Solvers import DefaultSolver
-from PyomoTools.IO import ModelToExcel
+from PyomoTools.environ.IO import ModelToExcel
 
 solver = DefaultSolver("MILP")
 model = pyo.ConcreteModel()
 
-bBounds = (2,10)
-cBounds = (-50,100)
+bBounds = (2, 10)
+cBounds = (-50, 100)
 
 model.A = pyo.Var()
 model.B = pyo.Var(bounds=bBounds)
@@ -33,8 +33,8 @@ MaxOperator(
     cBounds=cBounds,
 )
 
-model.obj = pyo.Objective(expr=model.A,sense=pyo.maximize)
+model.obj = pyo.Objective(expr=model.A, sense=pyo.maximize)
 
 solver.solve(model)
 
-ModelToExcel(model,"MaxOperatorSolution.xlsx")
+ModelToExcel(model, "MaxOperatorSolution.xlsx")

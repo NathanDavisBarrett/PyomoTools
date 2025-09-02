@@ -3,7 +3,8 @@ import re
 
 from .LoadVarSolutionFromDF import LoadVarSolutionFromDF
 
-def LoadModelSolutionFromDF(model:pyo.ConcreteModel,data:dict):
+
+def LoadModelSolutionFromDF(model: pyo.ConcreteModel, data: dict):
     """
     A function to load values from a dict of pandas dataframes to a pyomo model.
 
@@ -18,5 +19,5 @@ def LoadModelSolutionFromDF(model:pyo.ConcreteModel,data:dict):
     """
     for readableVarName in data:
         varName = readableVarName
-        var = getattr(model,varName)
-        LoadVarSolutionFromDF(var,data[readableVarName])
+        var = getattr(model, varName)
+        LoadVarSolutionFromDF(var, data[readableVarName])

@@ -1,2 +1,2 @@
 def FormatKey(key):
-    return key.replace("'","")
+    return key.replace("'", "")

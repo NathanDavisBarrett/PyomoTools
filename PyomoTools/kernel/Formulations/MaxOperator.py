@@ -1,18 +1,21 @@
 import pyomo.kernel as pmo
-from typing import Union,Tuple
+from typing import Union, Tuple
 import numpy as np
 
 from ._Formulation import _Formulation
 
+
 class MaxOperator(_Formulation):
-    def __init__(self,
-        A:Union[pmo.variable, pmo.expression],
-        B:Union[pmo.variable, pmo.expression],
-        C:Union[pmo.variable, pmo.expression],
-        bBounds:Tuple[float,float]=None,
-        cBounds:Tuple[float,float]=None,
-        Y:pmo.variable=None,
-        allowMaximizationPotential:bool=True):
+    def __init__(
+        self,
+        A: Union[pmo.variable, pmo.expression],
+        B: Union[pmo.variable, pmo.expression],
+        C: Union[pmo.variable, pmo.expression],
+        bBounds: Tuple[float, float] = None,
+        cBounds: Tuple[float, float] = None,
+        Y: pmo.variable = None,
+        allowMaximizationPotential: bool = True,
+    ):
         """
         A function to model the following relationship in MILP or LP form:
 
@@ -37,25 +40,19 @@ class MaxOperator(_Formulation):
         """
         vars = ["B", "C", "A"]
         varInfo = {
-            "A": (A, (max(bBounds[0],cBounds[0]), max(bBounds[1],cBounds[1]))),
+            "A": (A, (max(bBounds[0], cBounds[0]), max(bBounds[1], cBounds[1]))),
             "B": (B, bBounds),
-            "C": (C, cBounds)
+            "C": (C, cBounds),
         }
         if allowMaximizationPotential:
             vars.append("Y")
             varInfo["Y"] = (Y, (0, 1))
-        
-        super().__init__(
-            vars, varInfo
-        )
+
+        super().__init__(vars, varInfo)
 
         if not allowMaximizationPotential:
-            self.registerConstraint(
-                lambda B, C, A: A >= B
-            )
-            self.registerConstraint(
-                lambda B, C, A: A >= C
-            )
+            self.registerConstraint(lambda B, C, A: A >= B)
+            self.registerConstraint(lambda B, C, A: A >= C)
 
         else:
             if Y is None:
@@ -63,13 +60,15 @@ class MaxOperator(_Formulation):
 
                 self.originalVariables[3] = self.Y
 
-            bigM = np.max([np.abs(bBounds[1] - cBounds[0]),np.abs(cBounds[1] - bBounds[0])]) #The maximum difference between B and C
+            bigM = np.max(
+                [np.abs(bBounds[1] - cBounds[0]), np.abs(cBounds[1] - bBounds[0])]
+            )  # The maximum difference between B and C
 
             self.registerConstraint(
-                lambda B, C, A, Y, M=bigM: B-C <= M * Y,
+                lambda B, C, A, Y, M=bigM: B - C <= M * Y,
             )
             self.registerConstraint(
-                lambda B, C, A, Y, M=bigM: C-B <= M * (1-Y),
+                lambda B, C, A, Y, M=bigM: C - B <= M * (1 - Y),
             )
             self.registerConstraint(
                 lambda B, C, A, Y: A >= B,
@@ -78,12 +77,8 @@ class MaxOperator(_Formulation):
                 lambda B, C, A, Y: A >= C,
             )
             self.registerConstraint(
-                lambda B, C, A, Y, M=bigM: A <= B + M * (1-Y),
+                lambda B, C, A, Y, M=bigM: A <= B + M * (1 - Y),
             )
             self.registerConstraint(
                 lambda B, C, A, Y, M=bigM: A <= C + M * Y,
             )
-
-
-
-        

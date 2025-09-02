@@ -8,4 +8,13 @@ from .FindLeastInfeasibleSolution import FindLeastInfeasibleSolution
 from .VectorRepresentation.VectorRepresentation import VectorRepresentation
 from .Polytope import Polytope
 
-__all__ = ['LoadIndexedSet','Load2DIndexedSet','GenerateExpressionStrings','InfeasibilityReport','AssertPyomoModelsEqual','FindLeastInfeasibleSolution','VectorRepresentation','Polytope']
+__all__ = [
+    "LoadIndexedSet",
+    "Load2DIndexedSet",
+    "GenerateExpressionStrings",
+    "InfeasibilityReport",
+    "AssertPyomoModelsEqual",
+    "FindLeastInfeasibleSolution",
+    "VectorRepresentation",
+    "Polytope",
+]

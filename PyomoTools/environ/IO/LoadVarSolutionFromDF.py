@@ -1,7 +1,8 @@
 import pyomo.environ as pyo
 import pandas as pd
 
-def LoadVarSolutionFromDF(var:pyo.Var,df:pd.DataFrame):
+
+def LoadVarSolutionFromDF(var: pyo.Var, df: pd.DataFrame):
     """
     A function to load values from a pandas dataframe to a pyomo variable.
 
@@ -18,17 +19,17 @@ def LoadVarSolutionFromDF(var:pyo.Var,df:pd.DataFrame):
 
     if isIndexed:
         idxSet = [idx for idx in var.index_set()]
-        multiDim = isinstance(idxSet[0],tuple)
+        multiDim = isinstance(idxSet[0], tuple)
         if multiDim:
             if len(idxSet[0]) == 2:
                 I1Set = list(df.columns)
                 I2Set = list(df.index)
                 NAs = df.isna().to_numpy()
                 data = df.to_numpy()
-                for i,ii in enumerate(I1Set):
-                    for j,jj in enumerate(I2Set):
-                        if not NAs[j,i]:
-                            var[ii,jj].value = data[j,i]
+                for i, ii in enumerate(I1Set):
+                    for j, jj in enumerate(I2Set):
+                        if not NAs[j, i]:
+                            var[ii, jj].value = data[j, i]
             else:
                 idxDim = len(idxSet[0])
                 idxNames = [f"Index_{i+1}" for i in range(idxDim)]
@@ -41,6 +42,6 @@ def LoadVarSolutionFromDF(var:pyo.Var,df:pd.DataFrame):
             iis = df["Index"].to_numpy()
             vals = df["Value"].to_numpy()
             for l in range(len(vals)):
-                var[iis[l]].value = vals[l]        
+                var[iis[l]].value = vals[l]
     else:
         var.value = df

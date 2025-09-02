@@ -15,7 +15,7 @@ model.Constraint2 = pmo.constraint(expr=model.X >= model.Y + 1)
 model.Constraint3 = pmo.constraint(expr=model.X <= 11)
 model.Constraint4 = pmo.constraint(expr=model.X >= 10)
 
-#Alternatively, you could load values from a potential solution excel file using IO.LoadModelSolutionFromExcel
+# Alternatively, you could load values from a potential solution excel file using IO.LoadModelSolutionFromExcel
 model.X.value = 1
 model.Y.value = 2
 

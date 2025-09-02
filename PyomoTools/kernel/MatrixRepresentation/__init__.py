@@ -1,5 +1,3 @@
-from .MatrixRepresentation  import MatrixRepresentation
+from .MatrixRepresentation import MatrixRepresentation
 
-all = [
-    'MatrixRepresentation'
-]
+all = ["MatrixRepresentation"]

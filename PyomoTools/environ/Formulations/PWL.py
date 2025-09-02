@@ -5,7 +5,21 @@ import numpy as np
 from pyomo.core import Piecewise
 from pwlf import PiecewiseLinFit
 
-def PWL(model:pyo.ConcreteModel,func,xVar:pyo.Var,yVar:pyo.Var,xBounds:list,numSegments:int,relation="==",args=(),kwargs={},verify=True,formulation="DCC",numFineResolutionSegments=50):
+
+def PWL(
+    model: pyo.ConcreteModel,
+    func,
+    xVar: pyo.Var,
+    yVar: pyo.Var,
+    xBounds: list,
+    numSegments: int,
+    relation="==",
+    args=(),
+    kwargs={},
+    verify=True,
+    formulation="DCC",
+    numFineResolutionSegments=50,
+):
     """
     A function that creates a PWL approximation of the function provided.
 
@@ -43,46 +57,54 @@ def PWL(model:pyo.ConcreteModel,func,xVar:pyo.Var,yVar:pyo.Var,xBounds:list,numS
     None
     """
     if isfunction(func):
-        xData = np.linspace(xBounds[0],xBounds[1],numFineResolutionSegments)
-        yData = np.array([func(x,*args,**kwargs) for x in xData])
+        xData = np.linspace(xBounds[0], xBounds[1], numFineResolutionSegments)
+        yData = np.array([func(x, *args, **kwargs) for x in xData])
 
-        my_pwlf = PiecewiseLinFit(xData,yData)
+        my_pwlf = PiecewiseLinFit(xData, yData)
         xBreaks = my_pwlf.fit(numSegments)
         yBreaks = my_pwlf.predict(xBreaks)
 
         if verify:
-            fig,ax = plt.subplots(1,1)
+            fig, ax = plt.subplots(1, 1)
             ax.set_xlabel("x")
             ax.set_ylabel("y")
-            ax.plot(xData,yData,label="Original Function")
-            ax.plot(xBreaks,yBreaks,label="PWL Approximation")
+            ax.plot(xData, yData, label="Original Function")
+            ax.plot(xBreaks, yBreaks, label="PWL Approximation")
             ax.legend()
-            ax.set_title("Your code will resume once you close this window.\nTo disable visual verification, pass \"verify=False\" to the PWL function.")
+            ax.set_title(
+                'Your code will resume once you close this window.\nTo disable visual verification, pass "verify=False" to the PWL function.'
+            )
             plt.show()
     else:
-        xBreaks = func[:,0]
-        yBreaks = func[:,1]
+        xBreaks = func[:, 0]
+        yBreaks = func[:, 1]
         if verify:
-            fig,ax = plt.subplots(1,1)
+            fig, ax = plt.subplots(1, 1)
             ax.set_xlabel("x")
             ax.set_ylabel("y")
-            ax.plot(xBreaks,yBreaks,'.',color="tab:blue")
-            ax.plot(xBreaks,yBreaks,color="tab:blue")
-            ax.set_title("Your code will resume once you close this window.\nTo disable visual verification, pass \"verify=False\" to the PWL function.")
+            ax.plot(xBreaks, yBreaks, ".", color="tab:blue")
+            ax.plot(xBreaks, yBreaks, color="tab:blue")
+            ax.set_title(
+                'Your code will resume once you close this window.\nTo disable visual verification, pass "verify=False" to the PWL function.'
+            )
             plt.show()
 
-    constrTypeMap = {
-        "==": "EQ",
-        "<=": "UB",
-        ">=": "LB"
-    }
+    constrTypeMap = {"==": "EQ", "<=": "UB", ">=": "LB"}
     if relation not in constrTypeMap:
-        raise ValueError(f"\"{relation}\" is not a recognized relation.")
+        raise ValueError(f'"{relation}" is not a recognized relation.')
     relation = constrTypeMap[relation]
-    
+
     relationshipName = f"{xVar}_{yVar}_PWL"
 
-    setattr(model,relationshipName,Piecewise(
-        yVar,xVar,
-        pw_constr_type=relation,pw_pts=list(xBreaks),f_rule=list(yBreaks),pw_repn=formulation
-    ))
+    setattr(
+        model,
+        relationshipName,
+        Piecewise(
+            yVar,
+            xVar,
+            pw_constr_type=relation,
+            pw_pts=list(xBreaks),
+            f_rule=list(yBreaks),
+            pw_repn=formulation,
+        ),
+    )
