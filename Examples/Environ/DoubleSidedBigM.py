@@ -15,7 +15,7 @@ from PyomoTools.Formulations import DoubleSidedBigM
 from PyomoTools.base.Solvers import DefaultSolver
 from PyomoTools.IO import ModelToExcel
 
-xBounds = [-2,10]
+xBounds = [-2, 10]
 
 model = pyo.ConcreteModel()
 model.Y = pyo.Var(domain=pyo.Reals)
@@ -23,17 +23,12 @@ model.X = pyo.Var(domain=pyo.Reals)
 model.Z = pyo.Var(domain=pyo.Binary)
 
 DoubleSidedBigM(
-    model=model,
-    A=model.Y,
-    B=model.X,
-    X=model.Z,
-    Bmin=xBounds[0],
-    Bmax=xBounds[1]
+    model=model, A=model.Y, B=model.X, X=model.Z, Bmin=xBounds[0], Bmax=xBounds[1]
 )
 
-model.obj = pyo.Objective(expr=model.Y,sense=pyo.maximize)
+model.obj = pyo.Objective(expr=model.Y, sense=pyo.maximize)
 
 solver = DefaultSolver("MILP")
 solver.solve(model)
 
-ModelToExcel(model,"DoubleSidedBigMSolution.xlsx")
+ModelToExcel(model, "DoubleSidedBigMSolution.xlsx")
