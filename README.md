@@ -22,9 +22,16 @@ Key functions include:
 Each function is available (or will soon be available) for both pyomo.environ modeling as well as pyomo.kernel modeling. To access each one, please import them from PyomoTools.environ or PyomoTools.kernel
 
 # Installation
-1. Download or clone this repository
-2. In your Python terminal, navigate to the repository you downloaded.
-3. By default, the example/testing code used into this package uses the [SCIP solver](https://github.com/scipopt/scip). Please ensure you have this solver installed ([Instalation Link](https://www.scipopt.org/index.php#download)). If you'd like to instead use a different solver(s), please edit the "Solvers.py" file to point to the solvers you'd like to use before continuing.
-4. Enter the command ```pip install .```
-5. PyomoTools and all dependencies should be automatically installed.
-6. To make sure everything was correctly installed, Enter the command ```pytest PyomoTools/```
+### From PyPi
+> 1.1. Enter the command ```pip install PyomoTools``` in your Python terminal.
+### From GitHub
+> 1.1. Download or clone this repository.\
+> 1.2. In your Python terminal, navigate to the repository you downloaded.\
+> 1.3. Enter the command ```pip install .```
+
+2. By default, the example/testing code used into this package uses the [SCIP solver](https://github.com/scipopt/scip), [Gurobi Solver](https://www.gurobi.com/), and [ipopt Solver](https://coin-or.github.io/Ipopt/). Please either \
+A) ensure that these solvers are installed and accessible to Pyomo or\
+B) call ```PyomoTools.base.Solvers.DefaultSolver.EditDefaultSolver(problemType,solverName,**defaultKwargs)``` where\
+```problemType``` is MILP, NLP, MIQCP, etc,\ ```solverName``` is the name of the solver you'd like to use (e.g. "gurobi", "ipopt"), and\ ```defaultKwargs``` are any necessary key-word arguments for pyomo to utilize (e.g. executable=path/to/executable)
+
+3. To make sure everything was correctly installed, Enter the command ```pytest PyomoTools/```

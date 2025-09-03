@@ -1,5 +1,5 @@
 import pyomo.environ as pyo
-from pyomo.core.expr.current import identify_variables
+from pyomo.core.expr import identify_variables
 
 
 def GenerateExpressionStrings(expr):
