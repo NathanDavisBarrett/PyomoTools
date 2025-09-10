@@ -34,7 +34,7 @@ def test_concave():
     model.x = pmo.variable()
     model.y = pmo.variable()
 
-    params = PWL1DParameters(points=[(0, 0), (5, 5), (10, 0)], includeLB=False)
+    params = PWL1DParameters(points=[(0, 0), (5, 5), (10, 0)], includeLB_y=False)
 
     model.pwl = PWL1D(
         params,
@@ -60,7 +60,7 @@ def test_convex():
     model.x = pmo.variable()
     model.y = pmo.variable()
 
-    params = PWL1DParameters(points=[(0, 5), (5, 0), (10, 5)], includeUB=False)
+    params = PWL1DParameters(points=[(0, 5), (5, 0), (10, 5)], includeUB_y=False)
 
     model.pwl = PWL1D(
         params,

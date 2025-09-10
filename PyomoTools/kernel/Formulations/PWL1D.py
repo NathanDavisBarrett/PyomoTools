@@ -47,6 +47,19 @@ class PWL1D(pmo.block):
         else:
             raise ValueError(f"Unsupported PWL type: {pwl_type}")
 
+        self._enforce_x_bounds(xVar)
+
+    def _enforce_x_bounds(self, xVar):
+        if self.params.includeLB_x:
+            existingLB = xVar.lb
+            if existingLB is None or existingLB < self.params.points[0][0]:
+                xVar.lb = self.params.points[0][0]
+
+        if self.params.includeUB_x:
+            existingUB = xVar.ub
+            if existingUB is None or existingUB > self.params.points[-1][0]:
+                xVar.ub = self.params.points[-1][0]
+
     def _init_linear(self, xVar, yVar):
         p1, p2 = self.params.points[0], self.params.points[1]
 

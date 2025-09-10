@@ -138,7 +138,21 @@ def _init_linear(
     )
     constraint = getattr(model, constraintName)
 
+    _enforce_x_bounds(xVar, params)
+
     return (constraint,)
+
+
+def _enforce_x_bounds(xVar: pyo.Var, params: PWL1DParameters):
+    if params.includeLB_x:
+        existingLB = xVar.lb
+        if existingLB is None or existingLB < params.points[0][0]:
+            xVar.lb = params.points[0][0]
+
+    if params.includeUB_x:
+        existingUB = xVar.ub
+        if existingUB is None or existingUB > params.points[-1][0]:
+            xVar.ub = params.points[-1][0]
 
 
 def _init_convex(
@@ -163,6 +177,8 @@ def _init_convex(
     setattr(model, f"{relationshipBaseName}_segments", segmentSet)
     setattr(model, constraintName, pyo.Constraint(segmentSet, rule=constraintFunc))
     constraint = getattr(model, constraintName)
+
+    _enforce_x_bounds(xVar, params)
 
     return (constraint,)
 
@@ -189,6 +205,8 @@ def _init_concave(
     setattr(model, f"{relationshipBaseName}_segments", segmentSet)
     setattr(model, constraintName, pyo.Constraint(segmentSet, rule=constraintFunc))
     constraint = getattr(model, constraintName)
+
+    _enforce_x_bounds(xVar, params)
 
     return (constraint,)
 
@@ -243,6 +261,8 @@ def _init_general(
         ),
     )
     yValueConstraint = getattr(model, yValueConstraintName)
+
+    _enforce_x_bounds(xVar, params)
 
     return (
         weights,

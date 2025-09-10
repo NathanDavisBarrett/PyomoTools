@@ -66,14 +66,18 @@ class PWL1DParameters:
     Attributes:
         points (List[Tuple[float, float]]): List of (x, y) coordinate pairs that
             define the PWL function. Points are automatically sorted by x-value.
-        includeUB (bool): Whether to include an upper bound constraint. Defaults
+        includeUB_y (bool): Whether to include an upper bound constraint. Defaults
             to True. Required for concave and general PWL functions.
-        includeLB (bool): Whether to include a lower bound constraint. Defaults
+        includeLB_y (bool): Whether to include a lower bound constraint. Defaults
             to True. Required for convex and general PWL functions.
+        includeUB_x (bool): Whether to explicitly include a constraint for the upper bound of the x variable. Defaults
+            to True. Required to be True for general PWL functions.
+        includeLB_x (bool): Whether to explicitly include a constraint for the lower bound of the x variable. Defaults
+            to True. Required to be True for general PWL functions.
 
     Raises:
-        ValueError: If fewer than 2 points are provided, or if both includeUB
-                   and includeLB are False.
+        ValueError: If fewer than 2 points are provided, or if both includeUB_y
+                   and includeLB_y are False.
 
     Example:
         >>> # Create a simple triangular PWL function
@@ -87,8 +91,10 @@ class PWL1DParameters:
     """
 
     points: List[Tuple[float, float]]  # List of (x,y) points defining the PWL function
-    includeUB: bool = True
-    includeLB: bool = True
+    includeUB_y: bool = True
+    includeLB_y: bool = True
+    includeUB_x: bool = True
+    includeLB_x: bool = True
 
     def __post_init__(self):
         """
@@ -108,8 +114,8 @@ class PWL1DParameters:
             )
         # Sort points by x-coordinate to ensure proper ordering for analysis
         self.points.sort(key=lambda pt: pt[0])
-        if not (self.includeLB or self.includeUB):
-            raise ValueError("At least one of includeLB or includeUB must be True.")
+        if not (self.includeLB_y or self.includeUB_y):
+            raise ValueError("At least one of includeLB_y or includeUB_y must be True.")
 
     @classmethod
     def from_progressive_slopes(
@@ -117,8 +123,10 @@ class PWL1DParameters:
         xValues: List[float],
         slopes: List[float],
         startY: float = 0.0,
-        includeUB: bool = True,
-        includeLB: bool = True,
+        includeUB_y: bool = True,
+        includeLB_y: bool = True,
+        includeUB_x: bool = True,
+        includeLB_x: bool = True,
     ):
         """
         Create a PWL function from a series of x-values and corresponding slopes.
@@ -133,8 +141,10 @@ class PWL1DParameters:
             slopes (List[float]): Slope values for each segment between consecutive
                 x-values. Length must be len(xValues) - 1.
             startY (float, optional): Y-coordinate at the first x-value. Defaults to 0.0.
-            includeUB (bool, optional): Include upper bound constraint. Defaults to True.
-            includeLB (bool, optional): Include lower bound constraint. Defaults to True.
+            includeUB_y (bool, optional): Include upper bound constraint. Defaults to True.
+            includeLB_y (bool, optional): Include lower bound constraint. Defaults to True.
+            includeUB_x (bool, optional): Whether to explicitly include a constraint for the upper bound of the x variable. Defaults to True.
+            includeLB_x (bool, optional): Whether to explicitly include a constraint for the lower bound of the x variable. Defaults to True.
 
         Returns:
             PWL1DParameters: Configured PWL function parameters.
@@ -165,10 +175,18 @@ class PWL1DParameters:
             newY = points[-1][1] + deltaY  # New y-coordinate
             points.append((xValues[i + 1], newY))
 
-        return cls(points=points, includeUB=includeUB, includeLB=includeLB)
+        return cls(
+            points=points,
+            includeUB_y=includeUB_y,
+            includeLB_y=includeLB_y,
+            includeUB_x=includeUB_x,
+            includeLB_x=includeLB_x,
+        )
 
     @classmethod
-    def from_constant(cls, value, includeUB=True, includeLB=True):
+    def from_constant(
+        cls, value, includeUB_y=True, includeLB_y=True, lb_x=None, ub_x=None
+    ):
         """
         Create a PWL function representing a constant value.
 
@@ -177,8 +195,10 @@ class PWL1DParameters:
 
         Args:
             value (float): The constant y-value for the function.
-            includeUB (bool, optional): Include upper bound constraint. Defaults to True.
-            includeLB (bool, optional): Include lower bound constraint. Defaults to True.
+            includeUB_y (bool, optional): Include upper bound constraint. Defaults to True.
+            includeLB_y (bool, optional): Include lower bound constraint. Defaults to True.
+            lb_x (float, optional): Lower bound for the x variable. If None, no explicit lower bound is set. Defaults to None.
+            ub_x (float, optional): Upper bound for the x variable. If None, no explicit upper bound is set. Defaults to None.
 
         Returns:
             PWL1DParameters: PWL function with constant value across x-domain [0, 1].
@@ -188,12 +208,42 @@ class PWL1DParameters:
             >>> params = PWL1DParameters.from_constant(5.0)
             >>> # Results in points: [(0, 5), (1, 5)]
         """
+        if ub_x is not None and lb_x is not None:
+            assert ub_x > lb_x, "ub_x must be greater than lb_x."
+
+        if lb_x is None:
+            if ub_x is not None:
+                lb_x = min(ub_x * 0.9, ub_x - 1)  # Ensure lb_x is less than ub_x
+            else:
+                lb_x = 0
+            includeLB_x = False
+        else:
+            includeLB_x = True
+
+        if ub_x is None:
+            ub_x = max(lb_x * 1.1, lb_x + 1)  # Ensure ub_x is greater than lb_x
+            includeUB_x = False
+        else:
+            includeUB_x = True
+
         return cls(
-            points=[(0, value), (1, value)], includeUB=includeUB, includeLB=includeLB
+            points=[(lb_x, value), (ub_x, value)],
+            includeUB_y=includeUB_y,
+            includeLB_y=includeLB_y,
+            includeUB_x=includeUB_x,
+            includeLB_x=includeLB_x,
         )
 
     @classmethod
-    def from_linear(cls, slope, intercept, includeUB=True, includeLB=True):
+    def from_linear(
+        cls,
+        slope,
+        intercept,
+        includeUB_y=True,
+        includeLB_y=True,
+        lb_x=None,
+        ub_x=None,
+    ):
         """
         Create a PWL function representing a simple linear function.
 
@@ -203,8 +253,10 @@ class PWL1DParameters:
         Args:
             slope (float): The slope (rate of change) of the linear function.
             intercept (float): The y-intercept (value when x=0).
-            includeUB (bool, optional): Include upper bound constraint. Defaults to True.
-            includeLB (bool, optional): Include lower bound constraint. Defaults to True.
+            includeUB_y (bool, optional): Include upper bound constraint. Defaults to True.
+            includeLB_y (bool, optional): Include lower bound constraint. Defaults to True.
+            lb_x (float, optional): Lower bound for the x variable. If None, no explicit lower bound is set. Defaults to None.
+            ub_x (float, optional): Upper bound for the x variable. If None, no explicit upper bound is set. Defaults to None.
 
         Returns:
             PWL1DParameters: PWL function representing y = slope*x + intercept.
@@ -214,9 +266,33 @@ class PWL1DParameters:
             >>> params = PWL1DParameters.from_linear(slope=2, intercept=3)
             >>> # Results in points: [(0, 3), (1, 5)]
         """
-        p1 = (0, intercept)  # Point at x=0
-        p2 = (1, slope + intercept)  # Point at x=1
-        return cls(points=[p1, p2], includeUB=includeUB, includeLB=includeLB)
+        if ub_x is not None and lb_x is not None:
+            assert ub_x > lb_x, "ub_x must be greater than lb_x."
+
+        if lb_x is None:
+            if ub_x is not None:
+                lb_x = min(ub_x * 0.9, ub_x - 1)  # Ensure lb_x is less than ub_x
+            else:
+                lb_x = 0
+            includeLB_x = False
+        else:
+            includeLB_x = True
+
+        if ub_x is None:
+            ub_x = max(lb_x * 1.1, lb_x + 1)  # Ensure ub_x is greater than lb_x
+            includeUB_x = False
+        else:
+            includeUB_x = True
+
+        p1 = (lb_x, slope * lb_x + intercept)  # Point at x=lb_x
+        p2 = (ub_x, slope * ub_x + intercept)  # Point at x=ub_x
+        return cls(
+            points=[p1, p2],
+            includeUB_y=includeUB_y,
+            includeLB_y=includeLB_y,
+            includeUB_x=includeUB_x,
+            includeLB_x=includeLB_x,
+        )
 
     @cached_property
     def num_points(self) -> int:
@@ -285,35 +361,50 @@ class PWL1DParameters:
         # Determine function type based on convexity/concavity and bound settings
         if not is_convex and not is_concave:
             # Neither convex nor concave - requires both bounds
-            if self.includeLB and self.includeUB:
+            if self.includeLB_y and self.includeUB_y:
+                if not (self.includeLB_x and self.includeUB_x):
+                    warn(
+                        "General PWL functions must include both lower and upper bounds on the x variable."
+                    )
+                    return PWL1DType.UNABLE_TO_DETERMINE
                 return PWL1DType.GENERAL
-            elif self.includeLB and not self.includeUB:
+            elif self.includeLB_y and not self.includeUB_y:
                 warn(
                     "PWL functions that are neither convex nor concave must include an upper bound."
                 )
                 return PWL1DType.UNABLE_TO_DETERMINE
-            elif not self.includeLB and self.includeUB:
+            elif not self.includeLB_y and self.includeUB_y:
                 warn(
                     "PWL functions that are neither convex nor concave must include a lower bound."
                 )
                 return PWL1DType.UNABLE_TO_DETERMINE
         elif is_convex and not is_concave:
             # Purely convex function
-            if not self.includeLB:
+            if not self.includeLB_y:
                 warn("Convex PWL functions must include a lower bound.")
                 return PWL1DType.UNABLE_TO_DETERMINE
-            if not self.includeUB:
+            if not self.includeUB_y:
                 return PWL1DType.CONVEX
             else:
+                if not (self.includeLB_x and self.includeUB_x):
+                    warn(
+                        "General PWL functions must include both lower and upper bounds on the x variable."
+                    )
+                    return PWL1DType.UNABLE_TO_DETERMINE
                 return PWL1DType.GENERAL
         elif is_concave and not is_convex:
             # Purely concave function
-            if not self.includeUB:
+            if not self.includeUB_y:
                 warn("Concave PWL functions must include an upper bound.")
                 return PWL1DType.UNABLE_TO_DETERMINE
-            if not self.includeLB:
+            if not self.includeLB_y:
                 return PWL1DType.CONCAVE
             else:
+                if not (self.includeLB_x and self.includeUB_x):
+                    warn(
+                        "General PWL functions must include both lower and upper bounds on the x variable."
+                    )
+                    return PWL1DType.UNABLE_TO_DETERMINE
                 return PWL1DType.GENERAL
         else:
             # Both convex and concave - must be linear

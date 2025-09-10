@@ -40,7 +40,7 @@ def test_concave():
     model.x = pyo.Var()
     model.y = pyo.Var()
 
-    params = PWL1DParameters(points=[(0, 0), (5, 5), (10, 0)], includeLB=False)
+    params = PWL1DParameters(points=[(0, 0), (5, 5), (10, 0)], includeLB_y=False)
 
     (concaveInequalities,) = PWL1D(
         model,
@@ -68,7 +68,7 @@ def test_convex():
     model.x = pyo.Var()
     model.y = pyo.Var()
 
-    params = PWL1DParameters(points=[(0, 5), (5, 0), (10, 5)], includeUB=False)
+    params = PWL1DParameters(points=[(0, 5), (5, 0), (10, 5)], includeUB_y=False)
 
     (convexInequalities,) = PWL1D(
         model,
