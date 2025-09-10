@@ -6,6 +6,25 @@ import pyomo.kernel as pmo
 
 
 class PWL1D(pmo.block):
+    """
+    A block to model a piecewise linear function in MILP or LP form.
+
+    The function creates the appropriate constraints based on the PWL type:
+    - LINEAR: Single linear equality constraint
+    - CONVEX: Linear inequalities for convex hull
+    - CONCAVE: Linear inequalities for concave envelope
+    - GENERAL: SOS2 formulation with weights
+
+    Parameters
+    ----------
+    params: PWL1DParameters | Dict[Any, PWL1DParameters]
+        The parameters defining the piecewise linear function.
+    xVar: pyo.variable | pyo.expression
+        The Pyomo variable or expression representing the x-coordinate
+    yVar: pyo.variable | pyo.expression
+        The Pyomo variable or expression representing the y-coordinate
+    """
+
     def __init__(
         self,
         params: PWL1DParameters,
