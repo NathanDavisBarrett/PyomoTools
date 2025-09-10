@@ -78,11 +78,21 @@ class InfeasibilityData:
             except Exception:
                 eval_str = "Evaluation Error"
 
+        replacers = [
+            lambda s: s.replace("<= ", "&le;"),
+            lambda s: s.replace(">= ", "&ge;"),
+        ]
+
+        def replacer(s):
+            for func in replacers:
+                s = func(s)
+            return s
+
         return [
-            f"{var_name} {self.expr_str}",
-            f"{spaces}{self.substituted_expr_str}",
-            f"{spaces}{shortened_str}",
-            f"{spaces}{eval_str}",
+            f"{var_name} {replacer(self.expr_str)}",
+            f"{spaces}{replacer(self.substituted_expr_str)}",
+            f"{spaces}{replacer(shortened_str)}",
+            f"{spaces}{replacer(eval_str)}",
         ]
 
 
@@ -404,7 +414,7 @@ class InfeasibilityReportWidget(QMainWindow):
         lines = constraint_data.get_formatted_display()
 
         # Create formatted text
-        text = "\n".join(lines)
+        text = "<br>".join(lines)
 
         # Add violation status
         status = "VIOLATED" if constraint_data.is_violated else "SATISFIED"

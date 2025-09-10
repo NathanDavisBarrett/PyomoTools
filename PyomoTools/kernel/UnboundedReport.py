@@ -24,17 +24,17 @@ class UnboundedReport:
         assert unboundedLimit > 0, "unboundedLimit must be a positive number."
         self.unbounded_vars = []
 
-        self.clonedModel = model.clone()
+        self.model = model
         self.unboundedLimit = unboundedLimit
         self.rTol = rTol
 
-        self.set_var_bounds(self.clonedModel)
+        self.set_var_bounds(self.model)
 
-        results = solver.solve(self.clonedModel, tee=False)
+        results = solver.solve(self.model, tee=False)
         assert (
             results.solver.termination_condition != pmo.TerminationCondition.unbounded
         ), "The model is unbounded even after setting variable bounds. Consider decreasing unboundedLimit."
-        self.find_unbounded(self.clonedModel)
+        self.find_unbounded(self.model)
 
     def set_var_bounds(self, block: pmo.block):
         for child in block.children():
