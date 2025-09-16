@@ -364,45 +364,49 @@ class PWL1DParameters:
             if self.includeLB_y and self.includeUB_y:
                 if not (self.includeLB_x and self.includeUB_x):
                     warn(
-                        "General PWL functions must include both lower and upper bounds on the x variable."
+                        f"General PWL functions must include both lower and upper bounds on the x variable.\nPoints: {self.points}"
                     )
                     return PWL1DType.UNABLE_TO_DETERMINE
                 return PWL1DType.GENERAL
             elif self.includeLB_y and not self.includeUB_y:
                 warn(
-                    "PWL functions that are neither convex nor concave must include an upper bound."
+                    f"PWL functions that are neither convex nor concave must include an upper bound.\nPoints: {self.points}"
                 )
                 return PWL1DType.UNABLE_TO_DETERMINE
             elif not self.includeLB_y and self.includeUB_y:
                 warn(
-                    "PWL functions that are neither convex nor concave must include a lower bound."
+                    f"PWL functions that are neither convex nor concave must include a lower bound.\nPoints: {self.points}"
                 )
                 return PWL1DType.UNABLE_TO_DETERMINE
         elif is_convex and not is_concave:
             # Purely convex function
             if not self.includeLB_y:
-                warn("Convex PWL functions must include a lower bound.")
+                warn(
+                    f"Convex PWL functions must include a lower bound.\nPoints: {self.points}"
+                )
                 return PWL1DType.UNABLE_TO_DETERMINE
             if not self.includeUB_y:
                 return PWL1DType.CONVEX
             else:
                 if not (self.includeLB_x and self.includeUB_x):
                     warn(
-                        "General PWL functions must include both lower and upper bounds on the x variable."
+                        f"General PWL functions must include both lower and upper bounds on the x variable.\nPoints: {self.points}"
                     )
                     return PWL1DType.UNABLE_TO_DETERMINE
                 return PWL1DType.GENERAL
         elif is_concave and not is_convex:
             # Purely concave function
             if not self.includeUB_y:
-                warn("Concave PWL functions must include an upper bound.")
+                warn(
+                    f"Concave PWL functions must include an upper bound.\nPoints: {self.points}"
+                )
                 return PWL1DType.UNABLE_TO_DETERMINE
             if not self.includeLB_y:
                 return PWL1DType.CONCAVE
             else:
                 if not (self.includeLB_x and self.includeUB_x):
                     warn(
-                        "General PWL functions must include both lower and upper bounds on the x variable."
+                        f"General PWL functions must include both lower and upper bounds on the x variable.\nPoints: {self.points}"
                     )
                     return PWL1DType.UNABLE_TO_DETERMINE
                 return PWL1DType.GENERAL
