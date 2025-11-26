@@ -8,6 +8,7 @@ from .ConditionalGeq import ConditionalGeq
 from .ConditionalLeq import ConditionalLeq
 from .ConstrainContiguousBinarySeries import ConstrainContiguousBinarySeries
 from .RealBinaryIndicator import RealBinaryIndicator, Relation
+from .Conic import Conic
 
 __all__ = [
     "DoubleSidedBigM",
@@ -21,4 +22,5 @@ __all__ = [
     "ConstrainContiguousBinarySeries",
     "RealBinaryIndicator",
     "Relation",
+    "Conic",
 ]

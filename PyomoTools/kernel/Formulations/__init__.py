@@ -7,6 +7,7 @@ from .ConstrainContiguousBinarySeries import ConstrainContiguousBinarySeries
 from .AndOperator import AndOperator
 from .OrOperator import OrOperator
 from .RealBinaryIndicator import RealBinaryIndicator
+from .Conic import Conic
 
 __all__ = [
     "DoubleSidedBigM",
@@ -18,4 +19,5 @@ __all__ = [
     "AndOperator",
     "OrOperator",
     "RealBinaryIndicator",
+    "Conic",
 ]

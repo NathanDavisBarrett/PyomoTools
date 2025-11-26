@@ -16,6 +16,7 @@ class WrappedSolver:
         solver,
         leastInfeasibleDefinition: LeastInfeasibleDefinition = LeastInfeasibleDefinition.L1_Norm,
         infeasibilityReportFileName: str = "infeasibilityReport.txt",
+        interactiveInfeasibilityReport: bool = False,
         solutionJsonFileName: str = "leastInfeasibleSolution.json",
         exception: bool = True,
         defaultSolverOptions={},
@@ -24,6 +25,7 @@ class WrappedSolver:
         self.solver = solver
         self.leastInfeasibleDefinition = leastInfeasibleDefinition
         self.infeasibilityReportFileName = infeasibilityReportFileName
+        self.interactiveInfeasibilityReport = interactiveInfeasibilityReport
         self.solutionJsonFileName = solutionJsonFileName
         self.exception = exception
         for k in defaultSolverOptions:
@@ -46,18 +48,31 @@ class WrappedSolver:
                 solver_args=args,
                 solver_kwargs=kwargs,
             )
-            if self.infeasibilityReportFileName is not None:
-                report = InfeasibilityReport(model, **self.infeasibilityReportKwargs)
-                report.WriteFile(self.infeasibilityReportFileName)
-                repMessage = f"The infeasibility report for a least-infeasible solution was written to {self.infeasibilityReportFileName}.\n"
-            else:
-                repMessage = ""
-
             if self.solutionJsonFileName is not None:
                 ModelToJson(model, self.solutionJsonFileName)
                 solMessage = f"The least infeasible solution was written to {self.solutionJsonFileName}.\n"
             else:
                 solMessage = ""
+
+            if self.infeasibilityReportFileName is not None:
+                if self.interactiveInfeasibilityReport:
+                    from ...kernel.InfeasibilityReport_Interactive import (
+                        InfeasibilityReport_Interactive,
+                    )
+
+                    rep = InfeasibilityReport_Interactive(
+                        model, **self.infeasibilityReportKwargs
+                    )
+                    rep.show()
+                    repMessage = "The interactive infeasibility report was shown.\n"
+                else:
+                    report = InfeasibilityReport(
+                        model, **self.infeasibilityReportKwargs
+                    )
+                    report.WriteFile(self.infeasibilityReportFileName)
+                    repMessage = f"The infeasibility report for a least-infeasible solution was written to {self.infeasibilityReportFileName}.\n"
+            else:
+                repMessage = ""
 
             message = f"The model was infeasible.\n{repMessage}{solMessage}"
             if self.exception:
