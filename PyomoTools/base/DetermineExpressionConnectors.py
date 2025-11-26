@@ -158,70 +158,101 @@ def generate_connectors_and_aligned_expression(
     if results.solver.termination_condition != pmo.TerminationCondition.optimal:
         raise Exception("Failed to solve alignment integer program optimally.")
 
-    # Objective: Center connectors within token spans
-    min_width = pmo.value(model.obj1)
-    model.obj1.deactivate()
+    # Objective: Maximize the gap between connectors (to spread them out)
+    min_width = pmo.value(model.aligned_end[-1])
     model.aligned_end[-1].fix(min_width)
+    model.obj1.deactivate()
+    for i in range(len(non_operator_indices)):
+        if _value(model.top_pos[i]) is None:
+            ii = non_operator_indices[i]
+            model.top_pos[i].fix((starts[ii] + ends[ii]) // 2)
 
-    model.top_center = pmo.variable_list(
+    model.left_pos = pmo.variable_list(
         [
             pmo.variable(
-                domain=pmo.Reals,
-                value=(
-                    (starts[non_operator_indices[i]] + ends[non_operator_indices[i]])
-                    / 2
-                ),
+                domain=pmo.Integers,
+                # lb=0,
+                # ub=min_width,
+                value=min(_value(model.top_pos[i]), _value(model.bottom_pos[i])),
             )
             for i in range(len(non_operator_indices))
         ]
     )
-    model.bot_center = pmo.variable_list(
+    model.right_pos = pmo.variable_list(
         [
             pmo.variable(
-                domain=pmo.Reals,
-                value=pmo.value(
-                    model.aligned_start[non_operator_indices[i]]
-                    + model.aligned_end[non_operator_indices[i]]
-                )
-                / 2,
+                domain=pmo.Integers,
+                # lb=0,
+                # ub=min_width,
+                value=max(_value(model.top_pos[i]), _value(model.bottom_pos[i])),
             )
             for i in range(len(non_operator_indices))
         ]
     )
 
-    model.top_center_def = pmo.constraint_list(
+    model.left_pos_def = pmo.constraint_dict({})
+    model.right_pos_def = pmo.constraint_dict({})
+    for i in range(len(non_operator_indices)):
+        model.left_pos_def[(i, 0)] = pmo.constraint(
+            model.left_pos[i] <= model.top_pos[i]
+        )
+        model.left_pos_def[(i, 1)] = pmo.constraint(
+            model.left_pos[i] <= model.bottom_pos[i]
+        )
+        model.right_pos_def[(i, 0)] = pmo.constraint(
+            model.right_pos[i] >= model.top_pos[i]
+        )
+        model.right_pos_def[(i, 1)] = pmo.constraint(
+            model.right_pos[i] >= model.bottom_pos[i]
+        )
+
+    model.spacing = pmo.variable_list(
         [
-            pmo.constraint(
-                model.top_center[i]
-                == (starts[non_operator_indices[i]] + ends[non_operator_indices[i]]) / 2
+            pmo.variable(
+                domain=pmo.NonNegativeIntegers,
+                value=pmo.value(model.left_pos[i + 1] - model.right_pos[i]),
             )
-            for i in range(len(non_operator_indices))
-        ]
-    )
-    model.bot_center_def = pmo.constraint_list(
-        [
-            pmo.constraint(
-                model.bot_center[i]
-                == (
-                    model.aligned_start[non_operator_indices[i]]
-                    + model.aligned_end[non_operator_indices[i]]
-                )
-                / 2
-            )
-            for i in range(len(non_operator_indices))
+            for i in range(len(non_operator_indices) - 1)
         ]
     )
 
-    model.centering_obj = pmo.objective(
+    model.spacing_def = pmo.constraint_list()
+    for i in range(len(non_operator_indices) - 1):
+        model.spacing_def.append(
+            pmo.constraint(
+                model.spacing[i] == model.left_pos[i + 1] - model.right_pos[i]
+            )
+        )
+
+    # We want to particularly penalize small spacings: effective_spacing = sqrt(spacing)
+    model.effective_spacing = pmo.variable_list(
+        [
+            pmo.variable(
+                domain=pmo.NonNegativeIntegers,
+                value=pmo.sqrt(_value(model.spacing[i])),
+            )
+            for i in range(len(non_operator_indices) - 1)
+        ]
+    )
+
+    # Convex 2nd-Order Cone Constraint (shouldn't make the problem ~that~ much harder to solve)
+    model.effective_spacing_def = pmo.constraint_list()
+    for i in range(len(non_operator_indices) - 1):
+        model.effective_spacing_def.append(
+            pmo.constraint(
+                model.effective_spacing[i] * model.effective_spacing[i]
+                <= model.spacing[i]
+            )
+        )
+
+    model.obj2 = pmo.objective(
         expr=sum(
-            (model.top_center[i] - model.top_pos[i]) ** 2
-            + (model.bot_center[i] - model.bottom_pos[i]) ** 2
-            for i in range(len(non_operator_indices))
+            model.effective_spacing[i] for i in range(len(non_operator_indices) - 1)
         ),
-        sense=pmo.minimize,
+        sense=pmo.maximize,
     )
 
-    results = solver.solve(model, tee=False, warmstart=True, options={"TimeLimit": 1})
+    results = solver.solve(model, tee=False, warmstart=True)
     if results.solver.termination_condition != pmo.TerminationCondition.optimal:
         raise Exception("Failed to solve alignment integer program optimally.")
 
