@@ -716,11 +716,11 @@ class TestCompactMode:
         for line in result.split("\n"):
             assert line == line.rstrip()
 
-    def test_compact_default_is_false(self):
-        """Test that compact defaults to False."""
+    def test_compact_default_is_true(self):
+        """Test that compact defaults to True."""
         result_default = visualize_expression("2 + 3")
-        result_explicit_false = visualize_expression("2 + 3", compact=False)
-        assert result_default == result_explicit_false
+        result_explicit_true = visualize_expression("2 + 3", compact=True)
+        assert result_default == result_explicit_true
 
     def test_compact_complex_expression(self):
         """Test compact mode on a complex expression."""
