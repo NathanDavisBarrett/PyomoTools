@@ -575,10 +575,23 @@ class EvaluationStep:
     result_positions: List[int]  # Center positions of results in next expression
 
 
+def is_effectively_number(node: ASTNode) -> bool:
+    """
+    Check if a node is effectively a number - either a NumberNode directly,
+    or a UnaryOpNode applied to a NumberNode (like -5 or +3).
+    """
+    if isinstance(node, NumberNode):
+        return True
+    if isinstance(node, UnaryOpNode) and isinstance(node.operand, NumberNode):
+        return True
+    return False
+
+
 def find_evaluatable_nodes(node: ASTNode) -> List[ASTNode]:
     """
     Find all nodes that can be evaluated in the next step.
-    These are nodes where all children are NumberNodes.
+    These are nodes where all children are effectively numbers
+    (NumberNodes or UnaryOpNodes of NumberNodes).
     """
     result = []
 
@@ -592,8 +605,8 @@ def find_evaluatable_nodes(node: ASTNode) -> List[ASTNode]:
             result.extend(find_evaluatable_nodes(node.operand))
 
     elif isinstance(node, BinaryOpNode):
-        left_ready = isinstance(node.left, NumberNode)
-        right_ready = isinstance(node.right, NumberNode)
+        left_ready = is_effectively_number(node.left)
+        right_ready = is_effectively_number(node.right)
 
         if left_ready and right_ready:
             result.append(node)
@@ -604,13 +617,15 @@ def find_evaluatable_nodes(node: ASTNode) -> List[ASTNode]:
                 result.extend(find_evaluatable_nodes(node.right))
 
     elif isinstance(node, FunctionNode):
-        all_args_ready = all(isinstance(arg, NumberNode) for arg in node.args)
+        all_args_ready = all(is_effectively_number(arg) for arg in node.args)
         if all_args_ready:
             result.append(node)
         else:
             for arg in node.args:
-                if not isinstance(arg, NumberNode):
+                if not is_effectively_number(arg):
                     result.extend(find_evaluatable_nodes(arg))
+
+    return result
 
     return result
 
@@ -712,9 +727,14 @@ class ExpressionVisualizer:
         all_lines = []  # List of output lines
         current_ast = self.ast
         node_id_map = {}
+        first_iteration = True
 
-        # Build initial expression string
-        current_expr_str = self.builder.build(current_ast, node_id_map)
+        # Build expression string (for node position tracking)
+        # We'll use the original expression on the first iteration to preserve whitespace
+        self.builder.build(current_ast, node_id_map)
+        current_expr_str = (
+            self.original_expression
+        )  # Use original with whitespace preserved
 
         while True:
             # Find nodes to evaluate
@@ -731,11 +751,18 @@ class ExpressionVisualizer:
             # Get positions and results of nodes being evaluated
             eval_positions = []
             for node in to_evaluate:
-                node_id = id(node)
-                if node_id in self.builder.node_positions:
-                    start, end = self.builder.node_positions[node_id]
+                if first_iteration:
+                    # On first iteration, use AST's original positions
+                    start, end = node.start_pos, node.end_pos
                     result = self.evaluator.evaluate(node)
                     eval_positions.append((start, end, format_number(result)))
+                else:
+                    # On subsequent iterations, use builder's positions
+                    node_id = id(node)
+                    if node_id in self.builder.node_positions:
+                        start, end = self.builder.node_positions[node_id]
+                        result = self.evaluator.evaluate(node)
+                        eval_positions.append((start, end, format_number(result)))
 
             # Sort by position
             eval_positions.sort(key=lambda x: x[0])
@@ -777,6 +804,7 @@ class ExpressionVisualizer:
             # Update for next iteration
             current_ast = new_ast
             current_expr_str = aligned_expr
+            first_iteration = False  # Use builder positions after first iteration
 
             # Update node positions based on the aligned expression
             if aligned_starts is not None and aligned_ends is not None:
