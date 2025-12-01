@@ -3,7 +3,7 @@ A sub-package for code that is shared between the environ and kernel sub-package
 """
 
 from .GenerateExpressionString import GenerateExpressionStrings
-from .ParseNumericExpressionString import (
+from .ParseNumericExpressionString_OLD import (
     visualize_expression,
     show_evaluation,
     evaluate,

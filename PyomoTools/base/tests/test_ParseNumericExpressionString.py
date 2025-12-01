@@ -7,7 +7,7 @@ mathematical expressions.
 
 import pytest
 import math
-from PyomoTools.base.ParseNumericExpressionString import (
+from PyomoTools.base.ParseNumericExpressionString_OLD import (
     Tokenizer,
     TokenType,
     Parser,
