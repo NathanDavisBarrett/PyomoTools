@@ -1,4 +1,4 @@
-from ..base.GenerateExpressionString import GenerateExpressionStrings
+from ..base.GenerateExpressionVisualization import GenerateExpressionVisualization
 
 import pyomo.environ as pyo
 import re
@@ -20,11 +20,7 @@ class InfeasibilityReport:
 
     **NOTE #1**: Typically if a solver determines that a model is infeasible, it will not load a solution into the model object. Thus you cannot use this class in this case. However, if you manually load a solution into a model (e.g. by using the IO.LoadModelSolutionFromExcel function of this package), you and detect and infeasibilities that are present with that solution within this model
 
-    **NOTE #2**: The generated report (from str(report) or from report.WriteFile) are structured as follows: Each violated constraint has 4 lines:
-        1) The fully symbolic expression
-        2) The symbolic expression with all values substituted in but with whitespace conserved for ease of comparison with the fully symbolic expression
-        3) The substituted expression but with all unnecessary white space removed
-        4) The substituted expression evaluated down to it's right-hand-side and left-hand-side
+    **NOTE #2**: The generated report (from str(report) or from report.WriteFile) are structured as follows: Each violated constraint has multiple lines showing the symbolic expression, the numeric expression with values substituted, and a step-by-step visualization of the evaluation.
 
     Constructor Parameters
     ----------------------
@@ -39,10 +35,8 @@ class InfeasibilityReport:
 
     Members:
     --------
-    exprs:
-        A dict mapping the name of each violated constraint (str) to either that constraint's expression string or another dict that maps that constraint's indices to those indices' expression strings
-    substitutedExprs:
-        A dict with the same structure as exprs but with the value of each variable substituted into the expression string.
+    expr_visualizations:
+        A dict mapping the name of each violated constraint (str) to either that constraint's visualization string or another dict that maps that constraint's indices to those indices' visualization strings
     """
 
     def __init__(
@@ -52,8 +46,7 @@ class InfeasibilityReport:
         onlyInfeasibilities=True,
         ignoreIncompleteConstraints=False,
     ):
-        self.exprs = {}
-        self.substitutedExprs = {}
+        self.expr_visualizations = {}
         self.onlyInfeasibilities = onlyInfeasibilities
         self.ignoreIncompleteConstraints = ignoreIncompleteConstraints
 
@@ -129,94 +122,52 @@ class InfeasibilityReport:
         """
         self.numInfeas += 1
         if index is None:
-            self.exprs[name], self.substitutedExprs[name] = GenerateExpressionStrings(
+            self.expr_visualizations[name] = GenerateExpressionVisualization(
                 constr.expr
             )
         else:
-            if name not in self.exprs:
-                self.exprs[name] = {}
-                self.substitutedExprs[name] = {}
-            self.exprs[name][index], self.substitutedExprs[name][index] = (
-                GenerateExpressionStrings(constr.expr)
+            if name not in self.expr_visualizations:
+                self.expr_visualizations[name] = {}
+            self.expr_visualizations[name][index] = GenerateExpressionVisualization(
+                constr.expr
             )
 
     def Iterator(self):
         """
         A python generator object (iterator) that iterates over each infeasibility.
 
-        Iterates are strings of the following format: ConstraintName[Index (if appropriate)]: Expr \n SubstitutedExpression
+        Iterates are lists of strings of the following format: ConstraintName[Index (if appropriate)]: Expr \n SubstitutedExpression
         """
-        for c in self.exprs:
+        for c in self.expr_visualizations:
             cName = str(c)
-            if isinstance(self.exprs[c], dict):
-                for i in self.exprs[c]:
-                    varName = "{}[{}]:".format(cName, i)
+            if isinstance(self.expr_visualizations[c], dict):
+                for i in self.expr_visualizations[c]:
+                    varName = "{}[{}]: ".format(cName, i)
 
                     spaces = " " * len(varName)
-                    shortenedStr = re.sub(" +", " ", self.substitutedExprs[c][i])
-                    dividers = ["==", "<=", ">="]
-                    divider = None
-                    for d in dividers:
-                        if d in shortenedStr:
-                            divider = d
-                            break
 
-                    if divider is None:
-                        raise Exception(
-                            f"The following expression is not well posed as a constraint!\n{shortenedStr}"
-                        )
+                    visualization = self.expr_visualizations[c][i].split("\n")
 
-                    divIndex = shortenedStr.index(divider)
-                    lhs = shortenedStr[:divIndex].lstrip()
-                    rhs = shortenedStr[divIndex + 2 :].lstrip()
-                    lhsVal = eval(lhs)
-                    rhsVal = eval(rhs)
+                    for j in range(len(visualization)):
+                        if j == 0:
+                            visualization[j] = varName + visualization[j]
+                        else:
+                            visualization[j] = spaces + visualization[j]
 
-                    evalStr = f"{lhsVal} {divider} {rhsVal}"
-
-                    yield "{} {}\n{} {}\n{} {}\n{} {}".format(
-                        varName,
-                        self.exprs[c][i],
-                        spaces,
-                        self.substitutedExprs[c][i],
-                        spaces,
-                        shortenedStr,
-                        spaces,
-                        evalStr,
-                    )
+                    yield visualization
             else:
-                spaces = " " * len(cName)
-                shortenedStr = re.sub(" +", " ", self.substitutedExprs[c])
-                dividers = ["==", "<=", ">="]
-                divider = None
-                for d in dividers:
-                    if d in shortenedStr:
-                        divider = d
-                        break
+                varName = "{}: ".format(cName)
 
-                if divider is None:
-                    raise Exception(
-                        f"The following expression is not well posed as a constraint!\n{shortenedStr}"
-                    )
+                spaces = " " * len(varName)
 
-                divIndex = shortenedStr.index(divider)
-                lhs = shortenedStr[:divIndex].lstrip()
-                rhs = shortenedStr[divIndex + 2 :].lstrip()
-                lhsVal = eval(lhs)
-                rhsVal = eval(rhs)
+                visualization = self.expr_visualizations[c].split("\n")
 
-                evalStr = f"{lhsVal} {divider} {rhsVal}"
-
-                yield "{}: {}\n{}  {}\n{}  {}\n{}  {}".format(
-                    cName,
-                    self.exprs[c],
-                    spaces,
-                    self.substitutedExprs[c],
-                    spaces,
-                    shortenedStr,
-                    spaces,
-                    evalStr,
-                )
+                for j in range(len(visualization)):
+                    if j == 0:
+                        visualization[j] = varName + visualization[j]
+                    else:
+                        visualization[j] = spaces + visualization[j]
+                yield visualization
 
     def __len__(self):
         return self.numInfeas
@@ -231,8 +182,8 @@ class InfeasibilityReport:
         """
         lines = []
         for infeas in self.Iterator():
-            lines.append(infeas)
-            lines.append("\n\n")
+            lines.append("\n".join(infeas))
+            lines.append("")
         return "\n".join(lines)
 
     def WriteFile(self, fileName: str):

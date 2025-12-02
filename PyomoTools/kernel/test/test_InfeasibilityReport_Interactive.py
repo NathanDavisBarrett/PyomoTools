@@ -58,7 +58,7 @@ def create_hierarchical_infeasible_model():
     model.sub1 = pmo.block()
     model.sub1.a = pmo.variable()
     model.sub1.b = pmo.variable()
-    model.sub1.sub_c1 = pmo.constraint(model.sub1.a <= 10.0)
+    model.sub1.sub_c1 = pmo.constraint(model.sub1.a + model.sub1.b <= 10.0)
     model.sub1.sub_c2 = pmo.constraint(model.sub1.b >= 5.0)
 
     model.sub1.a.value = 15.0  # Violates sub_c1

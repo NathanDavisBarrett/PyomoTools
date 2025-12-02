@@ -1,4 +1,4 @@
-from ..base.GenerateExpressionString import GenerateExpressionStrings
+from ..base.GenerateExpressionVisualization import GenerateExpressionVisualization
 
 import pyomo.kernel as pmo
 import re
@@ -36,12 +36,11 @@ class InfeasibilityData:
     A class to hold data for a single infeasibility.
     """
 
-    def __init__(self, name, index, constraint, expr_str, substituted_expr_str):
+    def __init__(self, name, index, constraint, visualization):
         self.name = name
         self.index = index
         self.constraint = constraint
-        self.expr_str = expr_str
-        self.substituted_expr_str = substituted_expr_str
+        self.visualization = visualization
         self.is_violated = True  # Will be set properly during analysis
 
     def get_display_name(self):
@@ -50,33 +49,9 @@ class InfeasibilityData:
         return self.name
 
     def get_formatted_display(self):
-        """Generate the 4-line formatted display for the viewer pane."""
-        var_name = self.get_display_name() + ":"
-        spaces = " " * (len(var_name) + 1)
-
-        # Create shortened string with excess whitespace removed
-        shortened_str = re.sub(" +", " ", self.substituted_expr_str)
-
-        # Find the divider and evaluate
-        dividers = ["==", "<=", ">="]
-        divider = None
-        for d in dividers:
-            if d in shortened_str:
-                divider = d
-                break
-
-        if divider is None:
-            eval_str = "N/A"
-        else:
-            try:
-                div_index = shortened_str.index(divider)
-                lhs = shortened_str[:div_index].strip()
-                rhs = shortened_str[div_index + 2 :].strip()
-                lhs_val = eval(lhs)
-                rhs_val = eval(rhs)
-                eval_str = f"{lhs_val} {divider} {rhs_val}"
-            except Exception:
-                eval_str = "Evaluation Error"
+        """Generate the formatted display for the viewer pane."""
+        var_name = self.get_display_name() + ": "
+        spaces = " " * len(var_name)
 
         replacers = [
             lambda s: s.replace("<= ", "&le;"),
@@ -88,12 +63,17 @@ class InfeasibilityData:
                 s = func(s)
             return s
 
-        return [
-            f"{var_name} {replacer(self.expr_str)}",
-            f"{spaces}{replacer(self.substituted_expr_str)}",
-            f"{spaces}{replacer(shortened_str)}",
-            f"{spaces}{replacer(eval_str)}",
-        ]
+        # visualization is a string, split it into lines
+        visualization_lines = self.visualization.split("\n")
+
+        result = []
+        for j in range(len(visualization_lines)):
+            if j == 0:
+                result.append(replacer(var_name + visualization_lines[j]))
+            else:
+                result.append(replacer(spaces + visualization_lines[j]))
+
+        return result
 
 
 class BlockData:
@@ -305,12 +285,10 @@ class InfeasibilityReportWidget(QMainWindow):
     def _process_constraint(self, constraint, name, index, block_data):
         """Process a single constraint and add it to the block data."""
         # Generate expression strings
-        expr_str, substituted_expr_str = GenerateExpressionStrings(constraint.expr)
+        visualization = GenerateExpressionVisualization(constraint.expr)
 
         # Create infeasibility data
-        infeas_data = InfeasibilityData(
-            name, index, constraint, expr_str, substituted_expr_str
-        )
+        infeas_data = InfeasibilityData(name, index, constraint, visualization)
 
         # Test feasibility
         infeas_data.is_violated = not self._test_feasibility(constraint)

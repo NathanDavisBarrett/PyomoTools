@@ -141,15 +141,15 @@ def test_ReportFormat():
     report = InfeasibilityReport(model)
     reportStr = str(report)
     target = """c[0]: x[0]  ==  2*x[1]
-      2.0   ==  2*2.0 
-      2.0 == 2*2.0
-      2.0 == 4.0
-
-      
+      2.0   ==  2*2.0
+      │     │   └─┬─┘
+      │    ┌┘┌────┘
+      2.0 == 4
 
 c1: y    ==  3*x[0]
-    0.0  ==  3*2.0 
-    0.0 == 3*2.0
-    0.0 == 6.0
+    0.0  ==  3*2.0
+    │    │   └─┬─┘
+    │    │ ┌───┘
+    0.0 == 6
 """
     assertStringEquals(target, reportStr)

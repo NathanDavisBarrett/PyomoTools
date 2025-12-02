@@ -1,4 +1,4 @@
-from ..base.GenerateExpressionString import GenerateExpressionStrings
+from ..base.GenerateExpressionVisualization import GenerateExpressionVisualization
 
 import pyomo.kernel as pmo
 import re
@@ -54,8 +54,7 @@ class InfeasibilityReport:
         name=None,
     ):
         self.name = name
-        self.exprs = {}
-        self.substitutedExprs = {}
+        self.expr_visualizations = {}
         self.onlyInfeasibilities = onlyInfeasibilities
         self.ignoreIncompleteConstraints = ignoreIncompleteConstraints
 
@@ -209,15 +208,14 @@ class InfeasibilityReport:
         """
         self.numInfeas += 1
         if index is None:
-            self.exprs[name], self.substitutedExprs[name] = GenerateExpressionStrings(
+            self.expr_visualizations[name] = GenerateExpressionVisualization(
                 constr.expr
             )
         else:
-            if name not in self.exprs:
-                self.exprs[name] = {}
-                self.substitutedExprs[name] = {}
-            self.exprs[name][index], self.substitutedExprs[name][index] = (
-                GenerateExpressionStrings(constr.expr)
+            if name not in self.expr_visualizations:
+                self.expr_visualizations[name] = {}
+            self.expr_visualizations[name][index] = GenerateExpressionVisualization(
+                constr.expr
             )
 
     def Iterator(self):
@@ -226,65 +224,36 @@ class InfeasibilityReport:
 
         Iterates are lists of strings of the following format: ConstraintName[Index (if appropriate)]: Expr \n SubstitutedExpression
         """
-        for c in self.exprs:
+        for c in self.expr_visualizations:
             cName = str(c)
-            if isinstance(self.exprs[c], dict):
-                for i in self.exprs[c]:
-                    varName = "{}[{}]:".format(cName, i)
+            if isinstance(self.expr_visualizations[c], dict):
+                for i in self.expr_visualizations[c]:
+                    varName = "{}[{}]: ".format(cName, i)
 
-                    spaces = " " * (len(varName) + 1)
-                    shortenedStr = re.sub(" +", " ", self.substitutedExprs[c][i])
-                    dividers = ["==", "<=", ">="]
-                    divider = None
-                    for d in dividers:
-                        if d in shortenedStr:
-                            divider = d
-                            break
+                    spaces = " " * len(varName)
 
-                    if divider is None:
-                        evalStr = "N/A"
-                    else:
-                        divIndex = shortenedStr.index(divider)
-                        lhs = shortenedStr[:divIndex].lstrip()
-                        rhs = shortenedStr[divIndex + 2 :].lstrip()
-                        lhsVal = eval(lhs)
-                        rhsVal = eval(rhs)
+                    visualization = self.expr_visualizations[c][i].split("\n")
 
-                        evalStr = f"{lhsVal} {divider} {rhsVal}"
+                    for j in range(len(visualization)):
+                        if j == 0:
+                            visualization[j] = varName + visualization[j]
+                        else:
+                            visualization[j] = spaces + visualization[j]
 
-                    yield [
-                        f"{varName} {self.exprs[c][i]}",
-                        f"{spaces}{self.substitutedExprs[c][i]}",
-                        f"{spaces}{shortenedStr}",
-                        f"{spaces}{evalStr}",
-                    ]
+                    yield visualization
             else:
-                spaces = " " * (len(cName) + 2)
-                shortenedStr = re.sub(" +", " ", self.substitutedExprs[c])
-                dividers = ["==", "<=", ">="]
-                divider = None
-                for d in dividers:
-                    if d in shortenedStr:
-                        divider = d
-                        break
+                varName = "{}: ".format(cName)
 
-                if divider is None:
-                    evalStr = "N/A"
-                else:
-                    divIndex = shortenedStr.index(divider)
-                    lhs = shortenedStr[:divIndex].lstrip()
-                    rhs = shortenedStr[divIndex + 2 :].lstrip()
-                    lhsVal = eval(lhs)
-                    rhsVal = eval(rhs)
+                spaces = " " * len(varName)
 
-                    evalStr = f"{lhsVal} {divider} {rhsVal}"
+                visualization = self.expr_visualizations[c].split("\n")
 
-                yield [
-                    f"{cName}: {self.exprs[c]}",
-                    f"{spaces}{self.substitutedExprs[c]}",
-                    f"{spaces}{shortenedStr}",
-                    f"{spaces}{evalStr}",
-                ]
+                for j in range(len(visualization)):
+                    if j == 0:
+                        visualization[j] = varName + visualization[j]
+                    else:
+                        visualization[j] = spaces + visualization[j]
+                yield visualization
 
     def __len__(self):
         return self.numInfeas + sum(r.numInfeas for r in self.sub_reports.values())

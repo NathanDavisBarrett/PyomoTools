@@ -1,8 +1,30 @@
+"""
+Module for visualizing step-by-step evaluation of numeric expressions.
+
+Supports common mathematical operators (+, -, *, /, ^), functions (sin, cos, log, exp, sqrt),
+and parentheses for grouping. Displays evaluation with connecting lines showing the flow.
+
+Example:
+    >>> print(visualize_expression("3 + 5 * (2 - 8) / 4 ^ 2"))
+    3 + 5 * (2 - 8) / 4 ^ 2
+    │   │   └──┬──┘   └─┬─┘
+    │   │      │   ┌────┘
+    3 + 5 *   -6 / 16
+    │   └───┬──┘   │
+    │       │   ┌──┘
+    3 +   -30 / 16
+    │     └───┬──┘
+    │         │
+    3 +   -1.875
+    └────┬─────┘
+         │
+      1.125
+"""
+
 import math
 from typing import List, Tuple, Optional, Dict
 
-print("MAKE RELATIVE!")
-from DetermineExpressionConnectors import generate_connectors_and_aligned_expression
+from .DetermineExpressionConnectors import generate_connectors_and_aligned_expression
 from dataclasses import dataclass, field
 from enum import Enum, auto
 
@@ -10,9 +32,15 @@ import matplotlib.pyplot as plt
 import networkx as nx
 
 
+# =============================================================================
+# Token Types and Tokenizer
+# =============================================================================
+
+
 class TokenType(Enum):
     NUMBER = auto()
     OPERATOR = auto()
+    RELATIONAL = auto()  # ==, <=, >=, <, >, !=
     LPAREN = auto()
     RPAREN = auto()
     FUNCTION = auto()
@@ -46,6 +74,7 @@ class Tokenizer:
         "atan",
     }
     OPERATORS = {"+", "-", "*", "/", "^"}
+    RELATIONAL_OPERATORS = {"==", "<=", ">=", "<", ">", "!="}
     CONSTANTS = {"pi": math.pi, "e": math.e}
 
     def __init__(self, expression: str):
@@ -66,6 +95,8 @@ class Tokenizer:
                 self._read_number()
             elif char.isalpha() or char == "_":
                 self._read_identifier()
+            elif self._try_read_relational():
+                pass  # Relational operator was consumed
             elif char in self.OPERATORS:
                 self.tokens.append(
                     Token(TokenType.OPERATOR, char, self.pos, self.pos + 1)
@@ -143,6 +174,34 @@ class Tokenizer:
         else:
             raise ValueError(f"Unknown identifier '{name}' at position {start}")
 
+    def _try_read_relational(self) -> bool:
+        """Try to read a relational operator. Returns True if successful."""
+        start = self.pos
+        char = self.expression[self.pos]
+
+        # Check for two-character operators first
+        if self.pos + 1 < len(self.expression):
+            two_char = self.expression[self.pos : self.pos + 2]
+            if two_char in {"==", "<=", ">=", "!="}:
+                self.tokens.append(
+                    Token(TokenType.RELATIONAL, two_char, start, start + 2)
+                )
+                self.pos += 2
+                return True
+
+        # Check for single-character operators (< and >)
+        if char in {"<", ">"}:
+            self.tokens.append(Token(TokenType.RELATIONAL, char, start, start + 1))
+            self.pos += 1
+            return True
+
+        return False
+
+
+# =============================================================================
+# AST Node Types
+# =============================================================================
+
 
 @dataclass
 class ASTNode:
@@ -177,6 +236,7 @@ class ASTNode:
             "BinaryOpNode": "#FFB6C1",  # Light pink
             "UnaryOpNode": "#DDA0DD",  # Plum
             "FunctionNode": "#87CEEB",  # Sky blue
+            "RelationalExprNode": "#FFD700",  # Gold
         }
 
         def get_node_label(node: "ASTNode") -> str:
@@ -189,6 +249,8 @@ class ASTNode:
                 return f"unary {node.op}"
             elif isinstance(node, FunctionNode):
                 return f"{node.name}()"
+            elif isinstance(node, RelationalExprNode):
+                return node.op
             return "?"
 
         def add_nodes_edges(
@@ -219,6 +281,9 @@ class ASTNode:
             elif isinstance(node, FunctionNode):
                 for arg in node.args:
                     add_nodes_edges(arg, node_id, counter)
+            elif isinstance(node, RelationalExprNode):
+                add_nodes_edges(node.left, node_id, counter)
+                add_nodes_edges(node.right, node_id, counter)
 
             return node_id
 
@@ -317,8 +382,146 @@ def _hierarchy_pos(
     return pos
 
 
+@dataclass
+class NumberNode(ASTNode):
+    value: float = 0.0
+    original_str: str = ""
+
+
+@dataclass
+class BinaryOpNode(ASTNode):
+    op: str = ""
+    left: ASTNode = None
+    right: ASTNode = None
+
+
+@dataclass
+class UnaryOpNode(ASTNode):
+    op: str = ""
+    operand: ASTNode = None
+
+
+@dataclass
+class FunctionNode(ASTNode):
+    name: str = ""
+    args: List[ASTNode] = field(default_factory=list)
+
+
+@dataclass
+class RelationalExprNode(ASTNode):
+    """
+    AST node for relational expressions (e.g., '3 + 5 == 2 * 4').
+
+    The left and right sides are treated as independent ASTs for evaluation
+    purposes - no expressions are transferred across the relational operator.
+    However, for display/visualization purposes, they are rendered together.
+    """
+
+    op: str = ""  # The relational operator: ==, <=, >=, <, >, !=
+    left: ASTNode = None  # Left-hand side AST
+    right: ASTNode = None  # Right-hand side AST
+
+
+# =============================================================================
+# Tree Balancing
+# =============================================================================
+
 # Operators that are associative and can be rebalanced
 ASSOCIATIVE_OPS = {"+", "*"}
+
+
+# NOT SURE THIS FUNCTION IS WORKING! RUN CODE TO SEE. ROOT NODE SHOULD BE REPLACED AND THEN REBALANCED
+def normalize_subtractions(node: "ASTNode") -> "ASTNode":
+    """
+    Normalize subtractions by converting `a - b` to `a + (-b)` when b is a number.
+
+    This allows subtraction chains like `a - b - c` to be rebalanced as additions
+    of negative numbers: `a + (-b) + (-c)`.
+
+    Args:
+        node: The root of the AST to normalize
+
+    Returns:
+        A new normalized AST tree
+    """
+    if isinstance(node, NumberNode):
+        # Leaf node - return a copy
+        return NumberNode(
+            start_pos=node.start_pos,
+            end_pos=node.end_pos,
+            value=node.value,
+            original_str=node.original_str,
+        )
+
+    elif isinstance(node, UnaryOpNode):
+        # Normalize the operand recursively
+        if node.op == "-" and isinstance(node.operand, NumberNode):
+            # Convert unary -Number to Number with negated value
+            negated_value = -node.operand.value
+            return NumberNode(
+                start_pos=node.start_pos,
+                end_pos=node.end_pos,
+                value=negated_value,
+                original_str=format_number(negated_value),
+            )
+        else:
+            return UnaryOpNode(
+                start_pos=node.start_pos,
+                end_pos=node.end_pos,
+                op=node.op,
+                operand=normalize_subtractions(node.operand),
+            )
+
+    elif isinstance(node, FunctionNode):
+        # Normalize all arguments recursively
+        return FunctionNode(
+            start_pos=node.start_pos,
+            end_pos=node.end_pos,
+            name=node.name,
+            args=[normalize_subtractions(arg) for arg in node.args],
+        )
+
+    elif isinstance(node, BinaryOpNode):
+        # First normalize children
+        left = normalize_subtractions(node.left)
+        right = normalize_subtractions(node.right)
+
+        # If this is a subtraction and the right side is a number, convert to addition
+        if node.op == "-" and isinstance(right, NumberNode):
+            # Convert: a - b  =>  a + (-b)
+            negated_right = NumberNode(
+                start_pos=right.start_pos,
+                end_pos=right.end_pos,
+                value=-right.value,
+                original_str=format_number(-right.value),
+            )
+            return BinaryOpNode(
+                start_pos=node.start_pos,
+                end_pos=node.end_pos,
+                op="+",
+                left=left,
+                right=negated_right,
+            )
+        else:
+            return BinaryOpNode(
+                start_pos=node.start_pos,
+                end_pos=node.end_pos,
+                op=node.op,
+                left=left,
+                right=right,
+            )
+
+    elif isinstance(node, RelationalExprNode):
+        # Normalize both sides independently
+        return RelationalExprNode(
+            start_pos=node.start_pos,
+            end_pos=node.end_pos,
+            op=node.op,
+            left=normalize_subtractions(node.left),
+            right=normalize_subtractions(node.right),
+        )
+
+    return node
 
 
 def balance_tree(node: "ASTNode") -> "ASTNode":
@@ -329,11 +532,25 @@ def balance_tree(node: "ASTNode") -> "ASTNode":
     and rebuilds them as a balanced binary tree. Non-associative operators (-, /, ^)
     are left unchanged to preserve correct semantics.
 
+    This function first normalizes subtractions (a - b => a + (-b)) to enable
+    better balancing of subtraction chains.
+
     Args:
         node: The root of the AST to balance
 
     Returns:
         A new balanced AST tree
+    """
+    # First normalize subtractions to enable balancing
+    normalized = normalize_subtractions(node)
+
+    # Then balance the normalized tree
+    return _balance_tree_impl(normalized)
+
+
+def _balance_tree_impl(node: "ASTNode") -> "ASTNode":
+    """
+    Internal implementation of tree balancing after normalization.
     """
     if isinstance(node, NumberNode):
         # Leaf node - return a copy
@@ -350,7 +567,7 @@ def balance_tree(node: "ASTNode") -> "ASTNode":
             start_pos=node.start_pos,
             end_pos=node.end_pos,
             op=node.op,
-            operand=balance_tree(node.operand),
+            operand=_balance_tree_impl(node.operand),
         )
 
     elif isinstance(node, FunctionNode):
@@ -359,7 +576,7 @@ def balance_tree(node: "ASTNode") -> "ASTNode":
             start_pos=node.start_pos,
             end_pos=node.end_pos,
             name=node.name,
-            args=[balance_tree(arg) for arg in node.args],
+            args=[_balance_tree_impl(arg) for arg in node.args],
         )
 
     elif isinstance(node, BinaryOpNode):
@@ -367,7 +584,7 @@ def balance_tree(node: "ASTNode") -> "ASTNode":
             # Flatten the chain of same operators
             operands = _flatten_associative_chain(node, node.op)
             # Balance the operands recursively first
-            balanced_operands = [balance_tree(op) for op in operands]
+            balanced_operands = [_balance_tree_impl(op) for op in operands]
             # Build a balanced tree from the operands
             return _build_balanced_tree(balanced_operands, node.op)
         else:
@@ -376,9 +593,19 @@ def balance_tree(node: "ASTNode") -> "ASTNode":
                 start_pos=node.start_pos,
                 end_pos=node.end_pos,
                 op=node.op,
-                left=balance_tree(node.left),
-                right=balance_tree(node.right),
+                left=_balance_tree_impl(node.left),
+                right=_balance_tree_impl(node.right),
             )
+
+    elif isinstance(node, RelationalExprNode):
+        # Balance both sides independently
+        return RelationalExprNode(
+            start_pos=node.start_pos,
+            end_pos=node.end_pos,
+            op=node.op,
+            left=_balance_tree_impl(node.left),
+            right=_balance_tree_impl(node.right),
+        )
 
     return node
 
@@ -465,32 +692,14 @@ def tree_depth(node: "ASTNode") -> int:
         return 1 + max(tree_depth(arg) for arg in node.args)
     elif isinstance(node, BinaryOpNode):
         return 1 + max(tree_depth(node.left), tree_depth(node.right))
+    elif isinstance(node, RelationalExprNode):
+        return 1 + max(tree_depth(node.left), tree_depth(node.right))
     return 1
 
 
-@dataclass
-class NumberNode(ASTNode):
-    value: float = 0.0
-    original_str: str = ""
-
-
-@dataclass
-class BinaryOpNode(ASTNode):
-    op: str = ""
-    left: ASTNode = None
-    right: ASTNode = None
-
-
-@dataclass
-class UnaryOpNode(ASTNode):
-    op: str = ""
-    operand: ASTNode = None
-
-
-@dataclass
-class FunctionNode(ASTNode):
-    name: str = ""
-    args: List[ASTNode] = field(default_factory=list)
+# =============================================================================
+# Parser
+# =============================================================================
 
 
 class Parser:
@@ -532,7 +741,25 @@ class Parser:
         return token
 
     def _parse_expression(self) -> ASTNode:
-        return self._parse_additive()
+        return self._parse_relational()
+
+    def _parse_relational(self) -> ASTNode:
+        """Parse relational expressions (lowest precedence)."""
+        left = self._parse_additive()
+
+        # Check for relational operator
+        if self._current() and self._current().type == TokenType.RELATIONAL:
+            op_token = self._consume()
+            right = self._parse_additive()
+            return RelationalExprNode(
+                start_pos=left.start_pos,
+                end_pos=right.end_pos,
+                op=op_token.value,
+                left=left,
+                right=right,
+            )
+
+        return left
 
     def _parse_additive(self) -> ASTNode:
         left = self._parse_multiplicative()
@@ -661,16 +888,1035 @@ class Parser:
         )
 
 
-# tokenizer = Tokenizer("1 * -2 * 3 + 4 * 5 * 6 / 7 + sin(4) + 4 + 2 + 8 + 3 + 5")
-# tokens = tokenizer.tokenize()
-# parser = Parser(tokens)
-# ast = parser.parse()
+# =============================================================================
+# Evaluator
+# =============================================================================
 
-# print(f"Original tree depth: {tree_depth(ast)}")
-# ast.plot(title="Original AST (Unbalanced)")
 
-# balanced_ast = balance_tree(ast)
-# print(f"Balanced tree depth: {tree_depth(balanced_ast)}")
-# balanced_ast.plot(title="Balanced AST")
+class Evaluator:
+    """Evaluate AST nodes."""
 
-# plt.show()
+    FUNCTIONS = {
+        "sin": math.sin,
+        "cos": math.cos,
+        "tan": math.tan,
+        "asin": math.asin,
+        "acos": math.acos,
+        "atan": math.atan,
+        "log": math.log10,
+        "ln": math.log,
+        "exp": math.exp,
+        "sqrt": math.sqrt,
+        "abs": abs,
+        "floor": math.floor,
+        "ceil": math.ceil,
+    }
+
+    def evaluate(self, node: ASTNode) -> float:
+        """Evaluate an AST node and return the result."""
+        if isinstance(node, NumberNode):
+            return node.value
+
+        if isinstance(node, UnaryOpNode):
+            operand = self.evaluate(node.operand)
+            if node.op == "-":
+                return -operand
+            return operand
+
+        if isinstance(node, BinaryOpNode):
+            left = self.evaluate(node.left)
+            right = self.evaluate(node.right)
+
+            if node.op == "+":
+                return left + right
+            if node.op == "-":
+                return left - right
+            if node.op == "*":
+                return left * right
+            if node.op == "/":
+                if right == 0:
+                    raise ValueError("Division by zero")
+                return left / right
+            if node.op == "^":
+                return left**right
+
+        if isinstance(node, FunctionNode):
+            args = [self.evaluate(arg) for arg in node.args]
+            func = self.FUNCTIONS.get(node.name)
+            if func:
+                return func(*args)
+            raise ValueError(f"Unknown function: {node.name}")
+
+        if isinstance(node, RelationalExprNode):
+            left = self.evaluate(node.left)
+            right = self.evaluate(node.right)
+
+            if node.op == "==":
+                return float(left == right)
+            if node.op == "!=":
+                return float(left != right)
+            if node.op == "<=":
+                return float(left <= right)
+            if node.op == ">=":
+                return float(left >= right)
+            if node.op == "<":
+                return float(left < right)
+            if node.op == ">":
+                return float(left > right)
+            raise ValueError(f"Unknown relational operator: {node.op}")
+
+        raise ValueError(f"Unknown node type: {type(node)}")
+
+
+# =============================================================================
+# Expression String Builder
+# =============================================================================
+
+
+def format_number(value: float, precision: int = 10) -> str:
+    """Format a number for display."""
+    if abs(value - round(value)) < 1e-10:
+        return str(int(round(value)))
+    formatted = f"{value:.{precision}g}"
+    return formatted
+
+
+def get_precedence(op: str) -> int:
+    """Get operator precedence (higher = binds tighter)."""
+    if op in "+-":
+        return 1
+    if op in "*/":
+        return 2
+    if op == "^":
+        return 3
+    return 0
+
+
+def is_right_associative(op: str) -> bool:
+    """Check if operator is right-associative."""
+    return op == "^"
+
+
+@dataclass
+class ExpressionSegment:
+    """A segment of an expression string with metadata."""
+
+    text: str
+    node_id: int = -1  # ID of the AST node this segment represents
+    is_operator: bool = False
+    is_paren: bool = False
+
+
+class ExpressionBuilder:
+    """Build expression string from AST with position tracking."""
+
+    def __init__(self):
+        self.node_positions: Dict[int, Tuple[int, int]] = {}  # node_id -> (start, end)
+
+    def build(self, node: ASTNode, node_id_map: Dict[int, ASTNode]) -> str:
+        """Build expression string and track positions of nodes."""
+        self.node_positions = {}
+        result = self._build_node(node, 0, False, node_id_map)
+        return result
+
+    def _build_node(
+        self,
+        node: ASTNode,
+        parent_prec: int,
+        is_right: bool,
+        node_id_map: Dict[int, ASTNode],
+        offset: int = 0,
+    ) -> str:
+        """Build string for a node, tracking positions."""
+        node_id = id(node)
+
+        if isinstance(node, NumberNode):
+            text = node.original_str if node.original_str else format_number(node.value)
+            self.node_positions[node_id] = (offset, offset + len(text))
+            return text
+
+        if isinstance(node, UnaryOpNode):
+            operand_str = self._build_node(
+                node.operand, 4, False, node_id_map, offset + 1
+            )
+            text = f"{node.op}{operand_str}"
+            self.node_positions[node_id] = (offset, offset + len(text))
+            return text
+
+        if isinstance(node, BinaryOpNode):
+            prec = get_precedence(node.op)
+            need_parens = prec < parent_prec or (
+                prec == parent_prec and is_right and not is_right_associative(node.op)
+            )
+
+            current_offset = offset + (1 if need_parens else 0)
+
+            left_str = self._build_node(
+                node.left, prec, False, node_id_map, current_offset
+            )
+            op_str = f" {node.op} "
+            right_offset = current_offset + len(left_str) + len(op_str)
+            right_str = self._build_node(
+                node.right, prec, True, node_id_map, right_offset
+            )
+
+            inner = f"{left_str}{op_str}{right_str}"
+            if need_parens:
+                text = f"({inner})"
+            else:
+                text = inner
+
+            self.node_positions[node_id] = (offset, offset + len(text))
+            return text
+
+        if isinstance(node, FunctionNode):
+            args_strs = []
+            current_offset = offset + len(node.name) + 1  # name + (
+            for i, arg in enumerate(node.args):
+                if i > 0:
+                    current_offset += 2  # ", "
+                arg_str = self._build_node(arg, 0, False, node_id_map, current_offset)
+                args_strs.append(arg_str)
+                current_offset += len(arg_str)
+
+            text = f"{node.name}({', '.join(args_strs)})"
+            self.node_positions[node_id] = (offset, offset + len(text))
+            return text
+
+        if isinstance(node, RelationalExprNode):
+            # Build left side
+            left_str = self._build_node(node.left, 0, False, node_id_map, offset)
+            # Add the relational operator with spaces
+            op_str = f" {node.op} "
+            right_offset = offset + len(left_str) + len(op_str)
+            # Build right side
+            right_str = self._build_node(
+                node.right, 0, False, node_id_map, right_offset
+            )
+
+            text = f"{left_str}{op_str}{right_str}"
+            self.node_positions[node_id] = (offset, offset + len(text))
+            return text
+
+        return ""
+
+
+# =============================================================================
+# Step-by-Step Evaluation Tracker
+# =============================================================================
+
+
+@dataclass
+class EvaluationStep:
+    """Represents one step in the evaluation."""
+
+    expression: str
+    evaluated_positions: List[Tuple[int, int]]  # (start, end) of evaluated parts
+    results: List[str]  # Result strings
+    result_positions: List[int]  # Center positions of results in next expression
+
+
+def is_effectively_number(node: ASTNode) -> bool:
+    """
+    Check if a node is effectively a number - either a NumberNode directly,
+    or a UnaryOpNode applied to a NumberNode (like -5 or +3).
+    """
+    if isinstance(node, NumberNode):
+        return True
+    if isinstance(node, UnaryOpNode) and isinstance(node.operand, NumberNode):
+        return True
+    return False
+
+
+def find_evaluatable_nodes(node: ASTNode) -> List[ASTNode]:
+    """
+    Find all nodes that can be evaluated in the next step.
+    These are nodes where all children are effectively numbers
+    (NumberNodes or UnaryOpNodes of NumberNodes).
+    """
+    result = []
+
+    if isinstance(node, NumberNode):
+        return []
+
+    if isinstance(node, UnaryOpNode):
+        if isinstance(node.operand, NumberNode):
+            result.append(node)
+        else:
+            result.extend(find_evaluatable_nodes(node.operand))
+
+    elif isinstance(node, BinaryOpNode):
+        left_ready = is_effectively_number(node.left)
+        right_ready = is_effectively_number(node.right)
+
+        if left_ready and right_ready:
+            result.append(node)
+        else:
+            if not left_ready:
+                result.extend(find_evaluatable_nodes(node.left))
+            if not right_ready:
+                result.extend(find_evaluatable_nodes(node.right))
+
+    elif isinstance(node, FunctionNode):
+        all_args_ready = all(is_effectively_number(arg) for arg in node.args)
+        if all_args_ready:
+            result.append(node)
+        else:
+            for arg in node.args:
+                if not is_effectively_number(arg):
+                    result.extend(find_evaluatable_nodes(arg))
+
+    elif isinstance(node, RelationalExprNode):
+        # For relational expressions, find evaluatable nodes on both sides independently
+        # We never evaluate the relational operator itself until both sides are single numbers
+        result.extend(find_evaluatable_nodes(node.left))
+        result.extend(find_evaluatable_nodes(node.right))
+
+    return result
+
+    return result
+
+
+def find_highest_precedence_nodes(evaluatable: List[ASTNode]) -> List[ASTNode]:
+    """
+    From evaluatable nodes, find all nodes that can be evaluated in parallel.
+
+    The strategy is to evaluate all independent "ready" nodes at the same time.
+    A node is "ready" if all its children are numbers.
+    Nodes are independent if they don't overlap in the expression tree.
+
+    We return all evaluatable nodes since they're all ready by definition,
+    and the find_evaluatable_nodes function already ensures they don't overlap.
+    """
+    if not evaluatable:
+        return []
+
+    # All evaluatable nodes are ready and independent by construction
+    return evaluatable
+
+
+def evaluate_and_replace(
+    root: ASTNode, to_evaluate: List[ASTNode], evaluator: Evaluator
+) -> ASTNode:
+    """
+    Create a new AST with specified nodes replaced by their evaluated values.
+    """
+    eval_ids = {id(n) for n in to_evaluate}
+
+    def transform(node: ASTNode) -> ASTNode:
+        if id(node) in eval_ids:
+            result = evaluator.evaluate(node)
+            return NumberNode(
+                start_pos=node.start_pos,
+                end_pos=node.end_pos,
+                value=result,
+                original_str=format_number(result),
+            )
+
+        if isinstance(node, NumberNode):
+            return node
+
+        if isinstance(node, UnaryOpNode):
+            return UnaryOpNode(
+                start_pos=node.start_pos,
+                end_pos=node.end_pos,
+                op=node.op,
+                operand=transform(node.operand),
+            )
+
+        if isinstance(node, BinaryOpNode):
+            return BinaryOpNode(
+                start_pos=node.start_pos,
+                end_pos=node.end_pos,
+                op=node.op,
+                left=transform(node.left),
+                right=transform(node.right),
+            )
+
+        if isinstance(node, FunctionNode):
+            return FunctionNode(
+                start_pos=node.start_pos,
+                end_pos=node.end_pos,
+                name=node.name,
+                args=[transform(arg) for arg in node.args],
+            )
+
+        if isinstance(node, RelationalExprNode):
+            return RelationalExprNode(
+                start_pos=node.start_pos,
+                end_pos=node.end_pos,
+                op=node.op,
+                left=transform(node.left),
+                right=transform(node.right),
+            )
+
+        return node
+
+    return transform(root)
+
+
+# =============================================================================
+# Visualization
+# =============================================================================
+
+
+class ExpressionVisualizer:
+    """
+    Visualize step-by-step evaluation of a mathematical expression.
+
+    Uses integer programming to determine optimal connector positions and
+    expression alignment for compact output.
+    """
+
+    def __init__(
+        self,
+        expression: str,
+        compact: bool = False,
+        balance: bool = True,
+        plot_ast: bool = False,
+    ):
+        self.original_expression = expression
+        self.compact = compact
+        self.balance = balance
+        self.tokenizer = Tokenizer(expression)
+        self.tokens = self.tokenizer.tokenize()
+        self.parser = Parser(self.tokens)
+        self.ast = self.parser.parse()
+
+        # Optionally balance the tree for more efficient evaluation
+        if self.balance:
+            self.ast = balance_tree(self.ast)
+
+        if plot_ast:
+            self.ast.plot(title="Initial AST Tree")
+
+        self.evaluator = Evaluator()
+        self.builder = ExpressionBuilder()
+
+    def visualize(self, plot_ast: bool = False) -> str:
+        """Generate the complete visualization using integer programming for alignment."""
+        all_lines = []  # List of output lines
+        current_ast = self.ast
+        node_id_map = {}
+        first_iteration = True
+
+        # Build expression string (for node position tracking)
+        # We'll use the original expression on the first iteration to preserve whitespace
+        self.builder.build(current_ast, node_id_map)
+        current_expr_str = (
+            self.original_expression
+        )  # Use original with whitespace preserved
+
+        while True:
+            # Find nodes to evaluate
+            if plot_ast:
+                current_ast.plot(title="Current AST Tree")
+            evaluatable = find_evaluatable_nodes(current_ast)
+            if not evaluatable:
+                all_lines.append(current_expr_str.rstrip())
+                break
+
+            to_evaluate = find_highest_precedence_nodes(evaluatable)
+            if not to_evaluate:
+                all_lines.append(current_expr_str.rstrip())
+                break
+
+            # Get positions and results of nodes being evaluated
+            eval_positions = []
+            for node in to_evaluate:
+                if first_iteration:
+                    # On first iteration, use AST's original positions
+                    start, end = node.start_pos, node.end_pos
+                    result = self.evaluator.evaluate(node)
+                    eval_positions.append((start, end, format_number(result)))
+                else:
+                    # On subsequent iterations, use builder's positions
+                    node_id = id(node)
+                    if node_id in self.builder.node_positions:
+                        start, end = self.builder.node_positions[node_id]
+                        result = self.evaluator.evaluate(node)
+                        eval_positions.append((start, end, format_number(result)))
+
+            # Sort by position
+            eval_positions.sort(key=lambda x: x[0])
+
+            # Build the new expression tokens and their position mappings
+            new_tokens, token_starts, token_ends, unchanged_indices = (
+                self._build_new_expression_tokens(current_expr_str, eval_positions)
+            )
+
+            # Use integer programming to generate connectors and aligned expression
+            try:
+                conn1, conn2, aligned_expr, aligned_starts, aligned_ends = (
+                    generate_connectors_and_aligned_expression(
+                        new_tokens,
+                        token_starts,
+                        token_ends,
+                        unchanged_indices=unchanged_indices,
+                        compact=self.compact,
+                    )
+                )
+            except Exception:
+                # If IP fails, fall back to simple alignment
+                aligned_expr = " ".join(new_tokens)
+                conn1 = ""
+                conn2 = ""
+                aligned_starts = None
+                aligned_ends = None
+
+            # Add current expression and connectors to output
+            all_lines.append(current_expr_str.rstrip())
+            if conn1.strip():
+                all_lines.append(conn1.rstrip())
+            if conn2.strip():
+                all_lines.append(conn2.rstrip())
+
+            # Evaluate and get new AST
+            new_ast = evaluate_and_replace(current_ast, to_evaluate, self.evaluator)
+
+            # Rebalance the tree after evaluation to catch new balancing opportunities
+            # (e.g., after evaluating some nodes, we might have new subtraction-of-number patterns)
+            if self.balance:
+                new_ast = balance_tree(new_ast)
+
+            # Update for next iteration
+            current_ast = new_ast
+            current_expr_str = aligned_expr
+            first_iteration = False  # Use builder positions after first iteration
+
+            # Update node positions based on the aligned expression
+            if aligned_starts is not None and aligned_ends is not None:
+                self._update_node_positions_from_aligned_positions(
+                    new_tokens, aligned_starts, aligned_ends, new_ast
+                )
+            else:
+                self._update_node_positions_from_aligned(
+                    aligned_expr, new_ast, node_id_map
+                )
+
+            # Check if we're done
+            if isinstance(current_ast, NumberNode):
+                all_lines.append(aligned_expr.rstrip())
+                break
+            # For relational expressions, check if both sides are reduced to numbers
+            if isinstance(current_ast, RelationalExprNode):
+                if is_effectively_number(current_ast.left) and is_effectively_number(
+                    current_ast.right
+                ):
+                    all_lines.append(aligned_expr.rstrip())
+                    break
+
+        return "\n".join(all_lines)
+
+    def _build_new_expression_tokens(
+        self,
+        old_expr: str,
+        eval_positions: List[Tuple[int, int, str]],
+    ) -> Tuple[List[str], List[int], List[int], List[int]]:
+        """
+        Build the list of tokens for the new expression, along with their
+        start/end positions from the old expression.
+
+        Args:
+            old_expr: The current expression string
+            eval_positions: List of (start, end, result) for evaluated subexpressions
+
+        Returns:
+            Tuple of:
+            - tokens: List of token strings for the new expression
+            - starts: Starting positions of each token in the old expression
+            - ends: Ending positions of each token in the old expression
+            - unchanged_indices: Indices of tokens that are unchanged (not evaluated)
+        """
+        tokens = []
+        starts = []
+        ends = []
+        unchanged_indices = []
+
+        # Create a set of positions that are being evaluated
+        eval_ranges = []
+        for start, end, result in eval_positions:
+            eval_ranges.append((start, end, result))
+
+        # Sort eval_ranges by start position
+        eval_ranges.sort(key=lambda x: x[0])
+
+        def is_inside_eval_range(position: int) -> Tuple[bool, int]:
+            """Check if position is inside an eval range. Returns (is_inside, range_end)."""
+            for start, end, _ in eval_ranges:
+                if start <= position < end:
+                    return True, end
+            return False, -1
+
+        def get_eval_range_at(position: int) -> Optional[Tuple[int, int, str]]:
+            """Get the eval range that starts at this position, if any."""
+            for start, end, result in eval_ranges:
+                if start == position:
+                    return (start, end, result)
+            return None
+
+        pos = 0
+
+        while pos < len(old_expr):
+            # Skip whitespace
+            if old_expr[pos] == " ":
+                pos += 1
+                continue
+
+            # Check if we're at the start of an evaluated range
+            eval_range = get_eval_range_at(pos)
+            if eval_range is not None:
+                start, end, result = eval_range
+                tokens.append(result)
+                starts.append(start)
+                ends.append(end - 1)  # Convert to inclusive end
+                # This is an evaluated token, not unchanged
+                pos = end
+                continue
+
+            # Check if we're inside an evaluated range (skip to end)
+            inside, range_end = is_inside_eval_range(pos)
+            if inside:
+                pos = range_end
+                continue
+
+            # Read a token (operator or operand)
+            # First, check for relational operators (two-character first)
+            if pos + 1 < len(old_expr):
+                two_char = old_expr[pos : pos + 2]
+                if two_char in {"==", "<=", ">=", "!="}:
+                    tokens.append(two_char)
+                    starts.append(pos)
+                    ends.append(pos + 1)  # Inclusive end
+                    unchanged_indices.append(len(tokens) - 1)
+                    pos += 2
+                    continue
+
+            # Single character relational operators
+            if old_expr[pos] in "<>":
+                # Check if it's part of <= or >=
+                if pos + 1 < len(old_expr) and old_expr[pos + 1] == "=":
+                    # This case is handled above
+                    pass
+                else:
+                    tokens.append(old_expr[pos])
+                    starts.append(pos)
+                    ends.append(pos)
+                    unchanged_indices.append(len(tokens) - 1)
+                    pos += 1
+                    continue
+
+            # First, check for operators: but be careful with minus sign
+            # A minus is an operator only if:
+            # - It's not at the start of the expression
+            # - The previous non-whitespace character is not an operator or open paren
+            if old_expr[pos] in "*/^":
+                # These are always binary operators
+                tokens.append(old_expr[pos])
+                starts.append(pos)
+                ends.append(pos)
+                unchanged_indices.append(len(tokens) - 1)
+                pos += 1
+            elif old_expr[pos] in "+-":
+                # Check if this is a binary operator or start of a number
+                # Look back to find what preceded this
+                is_binary_op = False
+                if tokens:  # If we have previous tokens
+                    last_token = tokens[-1]
+                    # It's a binary operator if the last token was a number or a result
+                    # (i.e., not an operator)
+                    if last_token not in "+-*/^":
+                        is_binary_op = True
+
+                if is_binary_op:
+                    tokens.append(old_expr[pos])
+                    starts.append(pos)
+                    ends.append(pos)
+                    unchanged_indices.append(len(tokens) - 1)
+                    pos += 1
+                else:
+                    # This is a unary +/- at the start of a number
+                    start_pos = pos
+                    pos += 1  # consume the sign
+                    # Read the rest of the number
+                    while pos < len(old_expr) and (
+                        old_expr[pos].isdigit() or old_expr[pos] == "."
+                    ):
+                        pos += 1
+                    token = old_expr[start_pos:pos]
+                    tokens.append(token)
+                    starts.append(start_pos)
+                    ends.append(pos - 1)  # Inclusive end
+                    unchanged_indices.append(len(tokens) - 1)
+            elif old_expr[pos].isdigit() or old_expr[pos] == ".":
+                # Read a number
+                start_pos = pos
+                while pos < len(old_expr) and (
+                    old_expr[pos].isdigit() or old_expr[pos] == "."
+                ):
+                    pos += 1
+                token = old_expr[start_pos:pos]
+                tokens.append(token)
+                starts.append(start_pos)
+                ends.append(pos - 1)  # Inclusive end
+                unchanged_indices.append(len(tokens) - 1)
+            else:
+                # Skip other characters (parentheses already handled by evaluation)
+                pos += 1
+
+        return tokens, starts, ends, unchanged_indices
+
+    def _update_node_positions_from_aligned_positions(
+        self,
+        tokens: List[str],
+        aligned_starts: List[int],
+        aligned_ends: List[int],
+        ast: ASTNode,
+    ) -> None:
+        """
+        Update builder node positions using the known aligned positions from IP solution.
+        """
+        self.builder.node_positions = {}
+
+        # Build a map from token index to position
+        token_positions = {}
+        for i, (start, end) in enumerate(zip(aligned_starts, aligned_ends)):
+            token_positions[i] = (start, end + 1)  # Convert back to exclusive end
+
+        # Find node positions based on token indices
+        self._map_ast_to_positions(ast, tokens, token_positions, 0)
+
+    def _map_ast_to_positions(
+        self,
+        node: ASTNode,
+        tokens: List[str],
+        token_positions: Dict[int, Tuple[int, int]],
+        token_idx: int,
+    ) -> int:
+        """
+        Map AST nodes to their positions in the aligned expression.
+        Returns the next token index to process.
+        """
+        node_id = id(node)
+
+        if isinstance(node, NumberNode):
+            if token_idx < len(tokens):
+                start, end = token_positions.get(token_idx, (0, 1))
+                self.builder.node_positions[node_id] = (start, end)
+                return token_idx + 1
+            return token_idx
+
+        if isinstance(node, BinaryOpNode):
+            # Process left child
+            left_start_idx = token_idx
+            next_idx = self._map_ast_to_positions(
+                node.left, tokens, token_positions, token_idx
+            )
+
+            # Skip operator
+            next_idx += 1
+
+            # Process right child
+            right_start_idx = next_idx
+            next_idx = self._map_ast_to_positions(
+                node.right, tokens, token_positions, next_idx
+            )
+
+            # This node spans from left to right
+            if left_start_idx < len(tokens) and right_start_idx < len(tokens):
+                left_start = token_positions.get(left_start_idx, (0, 1))[0]
+                right_end = token_positions.get(next_idx - 1, (0, 1))[1]
+                self.builder.node_positions[node_id] = (left_start, right_end)
+
+            return next_idx
+
+        if isinstance(node, UnaryOpNode):
+            child_idx = self._map_ast_to_positions(
+                node.operand, tokens, token_positions, token_idx
+            )
+            if token_idx < len(tokens):
+                start = token_positions.get(token_idx, (0, 1))[0]
+                end = token_positions.get(child_idx - 1, (0, 1))[1]
+                self.builder.node_positions[node_id] = (start, end)
+            return child_idx
+
+        if isinstance(node, FunctionNode):
+            # Functions are replaced entirely, so just use current position
+            if token_idx < len(tokens):
+                start, end = token_positions.get(token_idx, (0, 1))
+                self.builder.node_positions[node_id] = (start, end)
+                return token_idx + 1
+            return token_idx
+
+        if isinstance(node, RelationalExprNode):
+            # Process left child
+            left_start_idx = token_idx
+            next_idx = self._map_ast_to_positions(
+                node.left, tokens, token_positions, token_idx
+            )
+
+            # Skip relational operator
+            next_idx += 1
+
+            # Process right child
+            right_start_idx = next_idx
+            next_idx = self._map_ast_to_positions(
+                node.right, tokens, token_positions, next_idx
+            )
+
+            # This node spans from left to right
+            if left_start_idx < len(tokens) and next_idx - 1 < len(tokens):
+                left_start = token_positions.get(left_start_idx, (0, 1))[0]
+                right_end = token_positions.get(next_idx - 1, (0, 1))[1]
+                self.builder.node_positions[node_id] = (left_start, right_end)
+
+            return next_idx
+
+        return token_idx
+
+    def _update_node_positions_from_aligned(
+        self,
+        aligned_expr: str,
+        ast: ASTNode,
+        node_id_map: Dict[int, ASTNode],
+    ) -> None:
+        """
+        Update the builder's node_positions based on the aligned expression.
+        This allows us to track positions correctly for subsequent iterations.
+        """
+        self.builder.node_positions = {}
+        self._find_node_positions_in_string(aligned_expr, ast, 0)
+
+    def _find_node_positions_in_string(
+        self,
+        expr: str,
+        node: ASTNode,
+        search_start: int,
+    ) -> Tuple[int, int]:
+        """
+        Find where a node's representation appears in the expression string.
+        Returns (start, end) positions.
+        """
+        node_id = id(node)
+
+        if isinstance(node, NumberNode):
+            # Find the number in the string
+            num_str = (
+                node.original_str if node.original_str else format_number(node.value)
+            )
+            # Search for the number, accounting for possible padding spaces
+            pos = search_start
+            while pos < len(expr):
+                if expr[pos : pos + len(num_str)] == num_str:
+                    self.builder.node_positions[node_id] = (pos, pos + len(num_str))
+                    return (pos, pos + len(num_str))
+                pos += 1
+            # Fallback - just use search_start
+            self.builder.node_positions[node_id] = (
+                search_start,
+                search_start + len(num_str),
+            )
+            return (search_start, search_start + len(num_str))
+
+        if isinstance(node, BinaryOpNode):
+            # Find left child first
+            left_start, left_end = self._find_node_positions_in_string(
+                expr, node.left, search_start
+            )
+            # Find operator
+            op_pos = expr.find(f" {node.op} ", left_end)
+            if op_pos < 0:
+                op_pos = left_end
+            # Find right child
+            right_start, right_end = self._find_node_positions_in_string(
+                expr, node.right, op_pos + 3
+            )
+            # This node spans from left to right
+            self.builder.node_positions[node_id] = (left_start, right_end)
+            return (left_start, right_end)
+
+        if isinstance(node, UnaryOpNode):
+            # Find the operator and operand
+            child_start, child_end = self._find_node_positions_in_string(
+                expr, node.operand, search_start + 1
+            )
+            self.builder.node_positions[node_id] = (search_start, child_end)
+            return (search_start, child_end)
+
+        if isinstance(node, FunctionNode):
+            # Find function name
+            func_pos = expr.find(node.name, search_start)
+            if func_pos < 0:
+                func_pos = search_start
+            # Find closing paren
+            paren_count = 0
+            end_pos = func_pos + len(node.name)
+            while end_pos < len(expr):
+                if expr[end_pos] == "(":
+                    paren_count += 1
+                elif expr[end_pos] == ")":
+                    paren_count -= 1
+                    if paren_count == 0:
+                        end_pos += 1
+                        break
+                end_pos += 1
+            self.builder.node_positions[node_id] = (func_pos, end_pos)
+            return (func_pos, end_pos)
+
+        if isinstance(node, RelationalExprNode):
+            # Find left child first
+            left_start, left_end = self._find_node_positions_in_string(
+                expr, node.left, search_start
+            )
+            # Find relational operator
+            op_pos = expr.find(f" {node.op} ", left_end)
+            if op_pos < 0:
+                op_pos = left_end
+            # Find right child
+            right_start, right_end = self._find_node_positions_in_string(
+                expr, node.right, op_pos + len(node.op) + 2
+            )
+            # This node spans from left to right
+            self.builder.node_positions[node_id] = (left_start, right_end)
+            return (left_start, right_end)
+
+        return (search_start, search_start)
+
+
+def visualize_expression(
+    expression: str, compact: bool = True, balance: bool = True, plot_ast: bool = False
+) -> str:
+    """
+    Visualize the step-by-step evaluation of a mathematical expression.
+
+    This function parses the expression, evaluates it step by step following
+    the order of operations (PEMDAS), and generates a visualization showing
+    connecting lines between each step.
+
+    Args:
+        expression: A mathematical expression string.
+                   Supports: +, -, *, /, ^ (power)
+                   Functions: sin, cos, tan, log, ln, exp, sqrt, abs, floor, ceil
+                   Constants: pi, e
+                   Parentheses for grouping
+        compact: If True, removes unnecessary whitespace from the output while
+                maintaining proper alignment of connector lines. At least one
+                space is preserved between tokens.
+        balance: If True, balances the AST tree before evaluation to minimize
+                depth. This allows more operations to be evaluated in parallel
+                for associative operators (+ and *). For example, 1+2+3+4
+                evaluated sequentially takes 3 steps, but balanced takes 2 steps.
+
+    Returns:
+        A multi-line string showing the step-by-step evaluation with
+        connecting lines indicating the flow.
+
+    Example:
+        >>> print(visualize_expression("3 + 5 * (2 - 8) / 4 ^ 2"))
+        3 + 5 * (2 - 8) / 4 ^ 2
+        │   │   └─────┘   └───┘
+        │   │      │   ┌────┘
+        3 + 5 *   -6 / 16
+        │   └──────┘   │
+        │       │   ┌──┘
+        3 +   -30 / 16
+        │     └──────┘
+        │         │
+        3 +   -1.875
+        └──────────┘
+             │
+          1.125
+    """
+    visualizer = ExpressionVisualizer(
+        expression, compact=compact, balance=balance, plot_ast=plot_ast
+    )
+    return visualizer.visualize(plot_ast=plot_ast)
+
+
+def show_evaluation(
+    expression: str, compact: bool = False, balance: bool = False
+) -> None:
+    """
+    Print the step-by-step evaluation of a mathematical expression.
+
+    Convenience function that prints the visualization directly.
+
+    Args:
+        expression: A mathematical expression string.
+        compact: If True, removes unnecessary whitespace from the output.
+        balance: If True, balances the AST tree before evaluation.
+    """
+    print(visualize_expression(expression, compact=compact, balance=balance))
+
+
+def evaluate(expression: str) -> float:
+    """
+    Evaluate a mathematical expression and return the result.
+
+    Args:
+        expression: A mathematical expression string.
+
+    Returns:
+        The numerical result of the expression.
+    """
+    tokenizer = Tokenizer(expression)
+    tokens = tokenizer.tokenize()
+    parser = Parser(tokens)
+    ast = parser.parse()
+    evaluator = Evaluator()
+    return evaluator.evaluate(ast)
+
+
+# =============================================================================
+# Main / Testing
+# =============================================================================
+
+if __name__ == "__main__":
+    # Test examples
+    test_expressions = [
+        "3 + 5 * (2 - 8) / 4 ^ 2",
+        "2 + 3 * 4",
+        "10 / 2 + 3",
+        "2 ^ 3 ^ 2",  # Right-associative: 2^(3^2) = 2^9 = 512
+        "sqrt(16) + 2",
+        "sin(0) + cos(0)",
+        "(1 + 2) * (3 + 4)",
+        "2 * 3 + 4 * 5",
+        # Relational expression examples
+        "3 + 5 == 2 * 4",  # 8 == 8 -> True
+        "2 * 3 <= 5 + 2",  # 6 <= 7 -> True
+        "10 / 2 >= 3 + 1",  # 5 >= 4 -> True
+        "1 + 2 + 3 == 6",  # 6 == 6 -> True
+        "-0.24384616888471886*0                   + 0.24384616888471886 - 3 + 2.7561538311152813*(1 - 0                  )",
+        "(-0.8337335562402163 - 1.3709710108389572*0                   + 3.03843812331939 - 3)",
+        "-0.24384616888471886*0                   + 0.24384616888471886 - 3 + 2.7561538311152813*(1 - 0                  ) + (-0.8337335562402163 - 1.3709710108389572*0                   + 3.03843812331939 - 3) + 0.7952954329208262*(1 - 0                  ) + (-1.1928471980738178 - 1.8123132157483224*0                   + 5.354324644092099 - 3) - 1.1614774460182815*(1 - 0                  ) + (-0.3253482844630507 - 0.4503120064825429*0                   + 3.9923234348263192 - 3) - 0.6669751503632684*(1 - 0                  ) + 3*1      + (-0.10250397212815927*0                   + 0.10250397212815927 - 3) + 2.8974960278718407*(1 - 0                  ) + (-0.4829059186112905 - 0.41621591761633714*0.3183098861837907  + 1.3820277548389182 - 3) + 2.1008781637723724*(1 - 1                  ) + (-1.4656922112682929 - 1.4184409594266887*0                   + 4.349825381963274 - 3) + 0.11586682930501846*(1 - 0                  ) + (-1.4912595097946204 - 1.4969761717794265*0                   + 5.8755410303213775 - 3) - 1.3842815205267573*(1 - 0                  ) + (-0.7866767864238279 - 0.4500158226549213*0                   + 4.828580681196872 - 3) - 1.0419038947730437*(1 - 0                  ) - 0.6346872015120248",
+    ]
+
+    print("=" * 60)
+    print("Expression Evaluation Visualizer")
+    print("=" * 60)
+
+    # Test relational expressions
+    debug_file = "debug_output.txt"
+    with open("debug_output.txt", "w", encoding="utf-8") as f:
+        f.write("Debug Output for Expression Evaluations\n")
+        f.write("=" * 60 + "\n\n")
+
+    for expr in test_expressions:
+        print(f"\nExpression: {expr}")
+        print("-" * 40)
+        try:
+            result = visualize_expression(expr, plot_ast=False)
+            print(result)
+            print(f"\nFinal value: {evaluate(expr)}")
+            with open("debug_output.txt", "a", encoding="utf-8") as f:
+                f.write(f"Expression: {expr}\n")
+                f.write(result)
+                f.write(f"\nFinal value: {evaluate(expr)}\n")
+                f.write("=" * 60 + "\n")
+        except Exception as e:
+            print(f"Error: {e}")
+            import traceback
+
+            traceback.print_exc()
+        print()

@@ -2,9 +2,7 @@ from typing import List, Tuple
 
 import pyomo.kernel as pmo
 
-# from .Solvers.DefaultSolver import DefaultSolver
-print("Use real function")
-DefaultSolver = lambda _: pmo.SolverFactory("gurobi")
+from .Solvers.DefaultSolver import DefaultSolver
 
 
 def _value(var):
