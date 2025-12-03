@@ -86,3 +86,13 @@ class DoubleSidedBigM(_Formulation):
         if self.originalVariables[Xindex] is None:
             self.X = pmo.variable(domain=pmo.Binary)
             self.originalVariables[Xindex] = self.X
+
+    def eval(self):
+        """
+        Assuming values are loaded for B, X, and C, determine the value of A.
+        """
+        Bval = pmo.value(self.originalVariables[0])
+        Xval = pmo.value(self.originalVariables[1])
+        Cval = pmo.value(self.originalVariables[3])
+        Aval = Bval * Xval + Cval
+        return Aval
