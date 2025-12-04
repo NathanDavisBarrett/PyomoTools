@@ -206,17 +206,24 @@ class InfeasibilityReport:
         index: object (optional, Default=None)
             If the constraint is indexed, pass the appropriate index here.
         """
-        self.numInfeas += 1
-        if index is None:
-            self.expr_visualizations[name] = GenerateExpressionVisualization(
-                constr.expr
-            )
-        else:
-            if name not in self.expr_visualizations:
-                self.expr_visualizations[name] = {}
-            self.expr_visualizations[name][index] = GenerateExpressionVisualization(
-                constr.expr
-            )
+        try:
+            self.numInfeas += 1
+            if index is None:
+                self.expr_visualizations[name] = GenerateExpressionVisualization(
+                    constr.expr
+                )
+            else:
+                if name not in self.expr_visualizations:
+                    self.expr_visualizations[name] = {}
+                self.expr_visualizations[name][index] = GenerateExpressionVisualization(
+                    constr.expr
+                )
+        except Exception as e:
+            raise Exception(
+                f"Warning! Could not visualize infeasibility for constraint {name}"
+                + (f"[{index}]" if index else "")
+                + f": {str(e)}"
+            ) from e
 
     def Iterator(self):
         """

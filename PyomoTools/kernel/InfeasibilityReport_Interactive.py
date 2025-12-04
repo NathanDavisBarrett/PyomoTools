@@ -54,8 +54,8 @@ class InfeasibilityData:
         spaces = " " * len(var_name)
 
         replacers = [
-            lambda s: s.replace("<= ", "&le;"),
-            lambda s: s.replace(">= ", "&ge;"),
+            lambda s: s.replace("<=", " &le;"),  # Spaced to maintain alignment
+            lambda s: s.replace(">=", " &ge;"),
         ]
 
         def replacer(s):

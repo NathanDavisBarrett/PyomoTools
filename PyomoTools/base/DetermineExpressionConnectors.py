@@ -1,17 +1,5 @@
 from typing import List, Tuple
 
-import pyomo.kernel as pmo
-
-from .Solvers.DefaultSolver import DefaultSolver
-
-
-def _value(var):
-    """Extract integer value from a Pyomo variable."""
-    val = pmo.value(var, exception=False)
-    if val is None:
-        return None
-    return int(round(val))
-
 
 def generate_connectors_and_aligned_expression(
     expression: List[str],
@@ -21,12 +9,7 @@ def generate_connectors_and_aligned_expression(
     compact: bool = False,
 ) -> Tuple[str, str, str, List[int], List[int]]:
     """
-    Generate the aligned expression and connector lines using integer programming.
-
-    This function solves an optimization problem to determine:
-    1. Where connectors should attach to the old expression (top positions)
-    2. Where connectors should attach to the new expression (bottom positions)
-    3. Where each token should be placed in the aligned expression
+    Generate the aligned expression and connector lines.
 
     Example:
     ~~~~~~~~~
@@ -65,206 +48,76 @@ def generate_connectors_and_aligned_expression(
         unchanged_indices = []
     unchanged_set = set(unchanged_indices)
 
-    model = pmo.block()
     non_operator_indices = [
         i
         for i, token in enumerate(expression)
         if token not in {"+", "-", "*", "/", "^"}
     ]
 
-    model.top_pos = pmo.variable_list(
-        [
-            pmo.variable(domain=pmo.Integers, lb=starts[i], ub=ends[i])
-            for i in non_operator_indices
-        ]
-    )  # Bounds handle the fact that top connectors must be within the token span
-    model.bottom_pos = pmo.variable_list(
-        [pmo.variable(domain=pmo.NonNegativeIntegers) for _ in non_operator_indices]
-    )
-    model.aligned_start = pmo.variable_list(
-        [pmo.variable(domain=pmo.NonNegativeIntegers) for _ in expression]
-    )
-    model.aligned_end = pmo.variable_list(
-        [pmo.variable(domain=pmo.NonNegativeIntegers) for _ in expression]
-    )
-
     # Constraint 1: Connecting lines cannot cross.
-    # # Mathematically, this means that
-    #   bottom_pos[i+1] >= bottom_pos[i] + 1
-    #   bottom_pos[i+1] >= top_pos[i] + 1
-    model.no_overlap_1 = pmo.constraint_list()
-    model.no_overlap_2 = pmo.constraint_list()
-    for idx in range(len(non_operator_indices) - 1):
-        model.no_overlap_1.append(
-            pmo.constraint(model.bottom_pos[idx + 1] >= model.bottom_pos[idx] + 1)
-        )
-        model.no_overlap_2.append(
-            pmo.constraint(model.bottom_pos[idx + 1] >= model.top_pos[idx] + 1)
-        )
 
     # Constraint 2: Aligned expression lengths must match original token lengths
-    model.length_match = pmo.constraint_list(
-        [
-            pmo.constraint(
-                model.aligned_end[i] - model.aligned_start[i] == len(expression[i]) - 1
-            )
-            for i in range(len(expression))
-        ]
-    )
 
     # Constraint 3: Bottom connector positions must be within aligned token spans
-    model.bottom_within_span_1 = pmo.constraint_list(
-        [
-            pmo.constraint(
-                model.bottom_pos[i] >= model.aligned_start[non_operator_indices[i]]
-            )
-            for i in range(len(non_operator_indices))
-        ]
-    )
-    model.bottom_within_span_2 = pmo.constraint_list(
-        [
-            pmo.constraint(
-                model.bottom_pos[i] <= model.aligned_end[non_operator_indices[i]]
-            )
-            for i in range(len(non_operator_indices))
-        ]
-    )
 
     # Constraint 4: Aligned tokens need at least one space between them (start and end must be separated by 2)
-    model.token_spacing = pmo.constraint_list(
-        [
-            pmo.constraint(model.aligned_start[i + 1] >= model.aligned_end[i] + 2)
-            for i in range(len(expression) - 1)
-        ]
-    )
-
-    if not compact:
-        # Enforce that connectors can only go straight down
-        model.straight_connectors = pmo.constraint_list(
-            [
-                pmo.constraint(model.top_pos[i] == model.bottom_pos[i])
-                for i in range(len(non_operator_indices))
-            ]
-        )
 
     # Objective: Minimize total width of aligned expression
-    model.obj1 = pmo.objective(expr=model.aligned_end[-1], sense=pmo.minimize)
 
-    solver = DefaultSolver("MILP")
+    if not compact:
+        # Connectors just go stright down
+        positions = [(starts[i] + ends[i]) // 2 for i in range(len(expression))]
+        top_positions = [positions[ii] for ii in non_operator_indices]
+        bottom_positions = top_positions
+        token_lengths = [len(expression[ii]) for ii in range(len(expression))]
+        aligned_starts = [
+            positions[i] - token_lengths[i] // 2 for i in range(len(expression))
+        ]
+        aligned_ends = [
+            aligned_starts[i] + token_lengths[i] - 1 for i in range(len(expression))
+        ]
+    else:
+        # Algorithm:
+        # 1. Set the initial aligned position to be as compact as possible (keeping spacing between tokens)
+        # 2. Keep track of the right-most connector position observed so far
+        # 3. Working from left to right,
+        #    Determine the left-most possible way to connect each token from top to bottom.
+        #    If this causes an overlap, shift the aligned positions so that the right edge of the aligned token is equal to the maximum observed position in the connector row.
+        token_lengths = [len(expression[ii]) for ii in range(len(expression))]
+        aligned_starts = []
+        aligned_ends = []
+        current_position = 0
+        for i in range(len(expression)):
+            if i > 0:
+                current_position += 1  # Minimum spacing between tokens
+            aligned_starts.append(current_position)
+            aligned_ends.append(current_position + token_lengths[i] - 1)
+            current_position += token_lengths[i]
 
-    results = solver.solve(model, tee=False)
-    if results.solver.termination_condition != pmo.TerminationCondition.optimal:
-        raise Exception("Failed to solve alignment integer program optimally.")
-
-    # Objective: Maximize the gap between connectors (to spread them out)
-    min_width = pmo.value(model.aligned_end[-1])
-    model.aligned_end[-1].fix(min_width)
-    model.obj1.deactivate()
-    for i in range(len(non_operator_indices)):
-        if _value(model.top_pos[i]) is None:
+        right_most_connector = -1
+        top_positions = []
+        bottom_positions = []
+        for i in range(len(non_operator_indices)):
             ii = non_operator_indices[i]
-            model.top_pos[i].fix((starts[ii] + ends[ii]) // 2)
+            bottom = aligned_ends[ii]
+            top = starts[ii]
+            if bottom <= ends[ii] and bottom >= starts[ii]:
+                top = bottom
+            elif bottom < starts[ii]:
+                top = starts[ii]
+            else:  # bottom > ends[ii]
+                top = ends[ii]
 
-    model.left_pos = pmo.variable_list(
-        [
-            pmo.variable(
-                domain=pmo.Integers,
-                # lb=0,
-                # ub=min_width,
-                value=min(_value(model.top_pos[i]), _value(model.bottom_pos[i])),
-            )
-            for i in range(len(non_operator_indices))
-        ]
-    )
-    model.right_pos = pmo.variable_list(
-        [
-            pmo.variable(
-                domain=pmo.Integers,
-                # lb=0,
-                # ub=min_width,
-                value=max(_value(model.top_pos[i]), _value(model.bottom_pos[i])),
-            )
-            for i in range(len(non_operator_indices))
-        ]
-    )
+            if bottom < right_most_connector + 1:
+                required_shift = (right_most_connector + 1) - bottom
+                for j in range(ii, len(expression)):
+                    aligned_starts[j] += required_shift
+                    aligned_ends[j] += required_shift
+                bottom = aligned_ends[ii]
 
-    model.left_pos_def = pmo.constraint_dict({})
-    model.right_pos_def = pmo.constraint_dict({})
-    for i in range(len(non_operator_indices)):
-        model.left_pos_def[(i, 0)] = pmo.constraint(
-            model.left_pos[i] <= model.top_pos[i]
-        )
-        model.left_pos_def[(i, 1)] = pmo.constraint(
-            model.left_pos[i] <= model.bottom_pos[i]
-        )
-        model.right_pos_def[(i, 0)] = pmo.constraint(
-            model.right_pos[i] >= model.top_pos[i]
-        )
-        model.right_pos_def[(i, 1)] = pmo.constraint(
-            model.right_pos[i] >= model.bottom_pos[i]
-        )
-
-    model.spacing = pmo.variable_list(
-        [
-            pmo.variable(
-                domain=pmo.NonNegativeIntegers,
-                value=pmo.value(model.left_pos[i + 1] - model.right_pos[i]),
-            )
-            for i in range(len(non_operator_indices) - 1)
-        ]
-    )
-
-    model.spacing_def = pmo.constraint_list()
-    for i in range(len(non_operator_indices) - 1):
-        model.spacing_def.append(
-            pmo.constraint(
-                model.spacing[i] == model.left_pos[i + 1] - model.right_pos[i]
-            )
-        )
-
-    # We want to particularly penalize small spacings: effective_spacing = sqrt(spacing)
-    model.effective_spacing = pmo.variable_list(
-        [
-            pmo.variable(
-                domain=pmo.NonNegativeIntegers,
-                value=pmo.sqrt(_value(model.spacing[i])),
-            )
-            for i in range(len(non_operator_indices) - 1)
-        ]
-    )
-
-    # Convex 2nd-Order Cone Constraint (shouldn't make the problem ~that~ much harder to solve)
-    model.effective_spacing_def = pmo.constraint_list()
-    for i in range(len(non_operator_indices) - 1):
-        model.effective_spacing_def.append(
-            pmo.constraint(
-                model.effective_spacing[i] * model.effective_spacing[i]
-                <= model.spacing[i]
-            )
-        )
-
-    model.obj2 = pmo.objective(
-        expr=sum(
-            model.effective_spacing[i] for i in range(len(non_operator_indices) - 1)
-        ),
-        sense=pmo.maximize,
-    )
-
-    results = solver.solve(model, tee=False, warmstart=True)
-    if results.solver.termination_condition != pmo.TerminationCondition.optimal:
-        raise Exception("Failed to solve alignment integer program optimally.")
-
-    # Extract variable values
-    top_positions = [_value(model.top_pos[i]) for i in range(len(non_operator_indices))]
-    for i in range(len(top_positions)):
-        if top_positions[i] is None:
-            ii = non_operator_indices[i]
-            top_positions[i] = (starts[ii] + ends[ii]) // 2
-    bottom_positions = [
-        _value(model.bottom_pos[i]) for i in range(len(non_operator_indices))
-    ]
-    aligned_starts = [_value(model.aligned_start[i]) for i in range(len(expression))]
-    aligned_ends = [_value(model.aligned_end[i]) for i in range(len(expression))]
+            top_positions.append(top)
+            bottom_positions.append(bottom)
+            right_most_connector = max(right_most_connector, top)
 
     max_top = max(ends)
 

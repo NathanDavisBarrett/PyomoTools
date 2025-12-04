@@ -179,6 +179,12 @@ class Tokenizer:
         start = self.pos
         char = self.expression[self.pos]
 
+        # Check for Unicode relational operators (single character)
+        if char in {"\u2264", "\u2265", "\u2260"}:  # ≤, ≥, ≠
+            self.tokens.append(Token(TokenType.RELATIONAL, char, start, start + 1))
+            self.pos += 1
+            return True
+
         # Check for two-character operators first
         if self.pos + 1 < len(self.expression):
             two_char = self.expression[self.pos : self.pos + 2]
@@ -1281,7 +1287,16 @@ class ExpressionVisualizer:
         self.tokenizer = Tokenizer(expression)
         self.tokens = self.tokenizer.tokenize()
         self.parser = Parser(self.tokens)
-        self.ast = self.parser.parse()
+
+        if not self.parser.tokens:
+            self.ast = NumberNode(start_pos=0, end_pos=0, value=0.0, original_str="0")
+        else:
+            try:
+                self.ast = self.parser.parse()
+            except ValueError as e:
+                raise ValueError(
+                    f'Error parsing expression "{expression}":\n{e}'
+                ) from e
 
         # Optionally balance the tree for more efficient evaluation
         if self.balance:
@@ -1481,7 +1496,16 @@ class ExpressionVisualizer:
                 continue
 
             # Read a token (operator or operand)
-            # First, check for relational operators (two-character first)
+            # First, check for Unicode relational operators (single character)
+            if old_expr[pos] in {"\u2264", "\u2265", "\u2260"}:  # ≤, ≥, ≠
+                tokens.append(old_expr[pos])
+                starts.append(pos)
+                ends.append(pos)  # Single character
+                unchanged_indices.append(len(tokens) - 1)
+                pos += 1
+                continue
+
+            # Check for two-character ASCII relational operators
             if pos + 1 < len(old_expr):
                 two_char = old_expr[pos : pos + 2]
                 if two_char in {"==", "<=", ">=", "!="}:
