@@ -313,5 +313,5 @@ class InfeasibilityReport:
         """
         A function to write the output to a file.
         """
-        with open(fileName, "w") as f:
+        with open(fileName, "w", encoding='utf-8') as f:
             f.write(str(self))
