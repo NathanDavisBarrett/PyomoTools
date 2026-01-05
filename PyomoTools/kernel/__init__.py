@@ -6,6 +6,7 @@ from .UnboundedReport import UnboundedReport
 from .AssertPyomoModelsEqual import AssertPyomoModelsEqual
 from .RelaxIntegerVarsKernel import RelaxIntegerVarsKernel
 from .ParallelComponentIterator import ParallelComponentIterator
+from .IntegerRelaxationReport import IntegerRelaxationReport
 
 __all__ = [
     "GenerateExpressionStrings",
@@ -15,4 +16,5 @@ __all__ = [
     "AssertPyomoModelsEqual",
     "RelaxIntegerVarsKernel",
     "ParallelComponentIterator",
+    "IntegerRelaxationReport",
 ]
