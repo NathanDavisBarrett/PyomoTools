@@ -8,7 +8,7 @@ name = "PyomoTools"
 version = "0.3.3"
 description = "A collection of tools to aid in formulating and working with Pyomo models."
 authors = [
-  { name="Nathan Barrett", email="nb5786@pricneton.edu" }
+  { name="Nathan Barrett", email="nb5786@princeton.edu" }
 ]
 readme = "README.md"
 license = { file="LICENSE" }
