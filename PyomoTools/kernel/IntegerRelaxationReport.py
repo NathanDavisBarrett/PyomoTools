@@ -52,9 +52,7 @@ class IntegerRelaxationReport:
 
         self.lp_relaxation = self.model.clone()
         RelaxIntegerVars().apply_to(self.lp_relaxation)
-        results = self.solver.solve(
-            self.lp_relaxation, tee=False, options=solver_options
-        )
+        results = self.solver.solve(self.lp_relaxation, tee=tee, options=solver_options)
         if results.solver.termination_condition != pmo.TerminationCondition.optimal:
             warnings.warn(
                 "IntegerRelaxationReport: The LP relaxation did not solve to optimality."
