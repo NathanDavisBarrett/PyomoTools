@@ -126,3 +126,13 @@ class IntegerRelaxationReport:
                     lp_obj_value - milp_obj_value
                 )  # Return absolute error if obj is 0
             return abs(lp_obj_value - milp_obj_value) / abs(milp_obj_value)
+
+    @cached_property
+    def relaxed_objective_value(self) -> float:
+        for _, lp_obj in ParallelComponentIterator(
+            [self.model, self.lp_relaxation],
+            collect_vars=False,
+            collect_constrs=False,
+            collect_objs=True,
+        ):
+            return pmo.value(lp_obj)
