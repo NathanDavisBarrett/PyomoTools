@@ -60,6 +60,11 @@ class IntegerRelaxationReport:
                 "IntegerRelaxationReport: The LP relaxation did not solve to optimality."
             )
 
+        if not self.detect_solution_loaded():
+            raise ValueError(
+                "IntegerRelaxationReport: No solution was loaded for the LP relaxation. Cannot generate report."
+            )
+
         self.fill_zero_values()
         self.assert_feasibility()
 
@@ -88,8 +93,6 @@ class IntegerRelaxationReport:
 
         I'll load 0 values back into any variable that is missing a value (since)
         """
-        if not self.detect_solution_loaded():
-            return  # No solution loaded, thus all variables will have values of None.
 
         for [relaxedVar] in ParallelComponentIterator(
             [self.lp_relaxation],
