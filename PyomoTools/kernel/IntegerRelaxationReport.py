@@ -6,6 +6,8 @@ from .RelaxIntegerVarsKernel import RelaxIntegerVarsKernel as RelaxIntegerVars
 from .ParallelComponentIterator import ParallelComponentIterator
 from ..base.Solvers import DefaultSolver
 
+from .InfeasibilityReport import InfeasibilityReport
+
 
 class IntegerRelaxationReport:
     """
@@ -56,6 +58,63 @@ class IntegerRelaxationReport:
         if results.solver.termination_condition != pmo.TerminationCondition.optimal:
             warnings.warn(
                 "IntegerRelaxationReport: The LP relaxation did not solve to optimality."
+            )
+
+        self.fill_zero_values()
+        self.assert_feasibility()
+
+    def detect_solution_loaded(self) -> bool:
+        """
+        Check if a solution is loaded in the LP relaxation model.
+
+        Returns
+        -------
+        bool
+            True if a solution is loaded, False otherwise.
+        """
+        for [relaxedVar] in ParallelComponentIterator(
+            [self.lp_relaxation],
+            collect_vars=True,
+            collect_constrs=False,
+            collect_objs=False,
+        ):
+            if pmo.value(relaxedVar, exception=False) is not None:
+                return True
+        return False
+
+    def fill_zero_values(self):
+        """
+        Sometimes solvers that pre-solve out variables that are set to zero will fail to load a solution value for those variables.
+
+        I'll load 0 values back into any variable that is missing a value (since)
+        """
+        if not self.detect_solution_loaded():
+            return  # No solution loaded, thus all variables will have values of None.
+
+        for [relaxedVar] in ParallelComponentIterator(
+            [self.lp_relaxation],
+            collect_vars=True,
+            collect_constrs=False,
+            collect_objs=False,
+        ):
+            if pmo.value(relaxedVar, exception=False) is None:
+                relaxedVar.value = 0.0
+
+    def assert_feasibility(self):
+        """
+        Assert that the LP relaxation solution is feasible.
+
+        Raises
+        ------
+        AssertionError
+            If the LP relaxation solution is not feasible for the original model.
+        """
+        report = InfeasibilityReport(self.lp_relaxation)
+        if len(report) > 0:
+            fileName = "IntegerRelaxation_InfeasibilityReport.txt"
+            report.WriteFile(fileName)
+            raise AssertionError(
+                f"The LP relaxation solution is not feasible for the original model. See {fileName} for details."
             )
 
     @cached_property
