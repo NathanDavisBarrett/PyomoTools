@@ -1,4 +1,4 @@
-from pyomo.opt import SolverFactory
+from pyomo.opt import SolverFactory, TerminationCondition
 import time
 import gurobipy as gp
 
@@ -41,7 +41,18 @@ class TimedIncumbentSolver:
         """
         self.cb.tic()
         self.solver.set_instance(model)
-        return self.solver.solve(model, *args, **kwargs)
+        results = self.solver.solve(model, *args, **kwargs)
+
+        # Post-process results: if terminated by callback with incumbent, change status
+        if (
+            results.solver.termination_condition == TerminationCondition.error
+            and self.solver._solver_model.SolCount > 0
+        ):
+            # Override the error status since we terminated with a valid solution
+            results.solver.termination_condition = TerminationCondition.maxTimeLimit
+            results.solver.status = results.solver.status.__class__.ok
+
+        return results
 
 
 # import pyomo.environ as pyo
