@@ -42,6 +42,7 @@ class InfeasibilityData:
         self.constraint = constraint
         self.visualization = visualization
         self.is_violated = True  # Will be set properly during analysis
+        self.is_active = True  # Will be set based on constraint.is_active()
 
     def get_display_name(self):
         if self.index is not None:
@@ -284,14 +285,26 @@ class InfeasibilityReportWidget(QMainWindow):
 
     def _process_constraint(self, constraint, name, index, block_data):
         """Process a single constraint and add it to the block data."""
+        # Check if constraint is active
+        is_active = constraint.active
+
         # Generate expression strings
-        visualization = GenerateExpressionVisualization(constraint.expr)
+        try:
+            visualization = GenerateExpressionVisualization(constraint.expr)
+            violated = not self._test_feasibility(constraint)
+        except ValueError as e:
+            if "value is None" in str(e):
+                visualization = f"{constraint.expr}\n<Could not evaluate expression due to incomplete variable values>"
+                violated = True
+            else:
+                raise e
 
         # Create infeasibility data
         infeas_data = InfeasibilityData(name, index, constraint, visualization)
 
         # Test feasibility
-        infeas_data.is_violated = not self._test_feasibility(constraint)
+        infeas_data.is_violated = violated
+        infeas_data.is_active = is_active
 
         # Add to block
         block_data.add_constraint(infeas_data)
@@ -356,6 +369,10 @@ class InfeasibilityReportWidget(QMainWindow):
             if constraint_data.is_violated:
                 constraint_item.setForeground(0, Qt.red)
 
+            # Grey out inactive constraints
+            if not constraint_data.is_active:
+                constraint_item.setForeground(0, Qt.gray)
+
         # Add sub-blocks
         for sub_block_data in block_data.sub_blocks.values():
             # Skip empty blocks if filtering
@@ -396,7 +413,12 @@ class InfeasibilityReportWidget(QMainWindow):
 
         # Add violation status
         status = "VIOLATED" if constraint_data.is_violated else "SATISFIED"
+        if not constraint_data.is_active:
+            status += " (Inactive)"
+
         color = "red" if constraint_data.is_violated else "green"
+        if not constraint_data.is_active:
+            color = "gray"
 
         formatted_text = f"""<h3 style="color: {color};">Constraint Status: {status}</h3>
 <pre style="font-family: 'Courier New', monospace; font-size: 10pt;">

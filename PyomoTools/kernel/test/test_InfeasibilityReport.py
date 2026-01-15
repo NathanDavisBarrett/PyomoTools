@@ -333,3 +333,48 @@ def test_ReportFormat_Multilevel():
 |
 """
     assertStringEquals(target, reportStr)
+
+
+def test_InactiveConstraint_Ignored():
+    """Test that inactive constraints are ignored even if violated."""
+    model = pmo.block()
+    model.x = pmo.variable()
+    model.y = pmo.variable()
+
+    # Create a violated constraint
+    model.c = pmo.constraint(model.x == model.y)
+
+    # Set values that violate the constraint
+    model.x.value = 1.0
+    model.y.value = 5.0
+
+    # Deactivate the constraint
+    model.c.deactivate()
+
+    # Report should be empty since the violated constraint is inactive
+    report = InfeasibilityReport(model)
+    assert (
+        len(report) == 0
+    ), f"Expected 0 infeasibilities with inactive constraint, but found {len(report)}"
+
+
+def test_InactiveConstraint_WithActiveConstraint():
+    """Test that inactive constraints are ignored while active ones are reported."""
+    model = pmo.block()
+    model.x = pmo.variable()
+    model.y = pmo.variable()
+
+    # Create two violated constraints
+    model.c1 = pmo.constraint(model.x == model.y)
+    model.c2 = pmo.constraint(model.x == 2 * model.y)
+
+    # Set values that violate both constraints
+    model.x.value = 1.0
+    model.y.value = 5.0
+
+    # Deactivate the first constraint
+    model.c1.deactivate()
+
+    # Report should only have one infeasibility (c2)
+    report = InfeasibilityReport(model)
+    assert len(report) == 1, f"Expected 1 infeasibility, but found {len(report)}"

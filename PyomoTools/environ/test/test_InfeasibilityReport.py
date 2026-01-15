@@ -153,3 +153,72 @@ c1: y    ==  3*x[0]
     0.0 == 6
 """
     assertStringEquals(target, reportStr)
+
+
+def test_InactiveConstraint_Ignored():
+    """Test that inactive constraints are ignored even if violated."""
+    model = pyo.ConcreteModel()
+    model.x = pyo.Var()
+    model.y = pyo.Var()
+
+    # Create a violated constraint
+    model.c = pyo.Constraint(expr=model.x == model.y)
+
+    # Set values that violate the constraint
+    model.x.value = 1.0
+    model.y.value = 5.0
+
+    # Deactivate the constraint
+    model.c.deactivate()
+
+    # Report should be empty since the violated constraint is inactive
+    report = InfeasibilityReport(model)
+    assert (
+        len(report) == 0
+    ), f"Expected 0 infeasibilities with inactive constraint, but found {len(report)}"
+
+
+def test_InactiveConstraint_WithActiveConstraint():
+    """Test that inactive constraints are ignored while active ones are reported."""
+    model = pyo.ConcreteModel()
+    model.x = pyo.Var()
+    model.y = pyo.Var()
+
+    # Create two violated constraints
+    model.c1 = pyo.Constraint(expr=model.x == model.y)
+    model.c2 = pyo.Constraint(expr=model.x == 2 * model.y)
+
+    # Set values that violate both constraints
+    model.x.value = 1.0
+    model.y.value = 5.0
+
+    # Deactivate the first constraint
+    model.c1.deactivate()
+
+    # Report should only have one infeasibility (c2)
+    report = InfeasibilityReport(model)
+    assert len(report) == 1, f"Expected 1 infeasibility, but found {len(report)}"
+
+
+def test_InactiveIndexedConstraint_Ignored():
+    """Test that individual inactive indexed constraints are ignored."""
+    model = pyo.ConcreteModel()
+    model.x = pyo.Var([0, 1, 2])
+
+    def cRule(m, i):
+        return model.x[i] == i
+
+    model.c = pyo.Constraint([0, 1, 2], rule=cRule)
+
+    # Set values that violate all constraints
+    model.x[0].value = 10.0
+    model.x[1].value = 20.0
+    model.x[2].value = 30.0
+
+    # Deactivate constraints at indices 0 and 2
+    model.c[0].deactivate()
+    model.c[2].deactivate()
+
+    # Report should only have one infeasibility (index 1)
+    report = InfeasibilityReport(model)
+    assert len(report) == 1, f"Expected 1 infeasibility, but found {len(report)}"

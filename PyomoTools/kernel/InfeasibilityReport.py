@@ -103,18 +103,22 @@ class InfeasibilityReport:
                 continue
             elif isinstance(obj, (pmo.constraint_list, pmo.constraint_tuple)):
                 for index in range(len(obj)):
-                    if not self.TestFeasibility(obj[index], aTol=aTol):
+                    if obj[index].active and not self.TestFeasibility(
+                        obj[index], aTol=aTol
+                    ):
                         self.AddInfeasibility(
                             name=str(c), index=index, constr=obj[index]
                         )
             elif isinstance(obj, pmo.constraint_dict):
                 for index in obj:
-                    if not self.TestFeasibility(obj[index], aTol=aTol):
+                    if obj[index].active and not self.TestFeasibility(
+                        obj[index], aTol=aTol
+                    ):
                         self.AddInfeasibility(
                             name=str(c), index=index, constr=obj[index]
                         )
             elif isinstance(obj, pmo.constraint):
-                if not self.TestFeasibility(obj, aTol=aTol):
+                if obj.active and not self.TestFeasibility(obj, aTol=aTol):
                     self.AddInfeasibility(name=c, constr=obj)
 
             elif isinstance(obj, (pmo.block_list, pmo.block_tuple)):
@@ -313,5 +317,5 @@ class InfeasibilityReport:
         """
         A function to write the output to a file.
         """
-        with open(fileName, "w", encoding='utf-8') as f:
+        with open(fileName, "w", encoding="utf-8") as f:
             f.write(str(self))

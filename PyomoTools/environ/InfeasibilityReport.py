@@ -64,12 +64,14 @@ class InfeasibilityReport:
             if isinstance(constr, Iterable):
                 # This constraint is indexed
                 for index in constr:
-                    if not self.TestFeasibility(constr[index], aTol=aTol):
+                    if constr[index].active and not self.TestFeasibility(
+                        constr[index], aTol=aTol
+                    ):
                         self.AddInfeasibility(
                             name=str(c), index=index, constr=constr[index]
                         )
             else:
-                if not self.TestFeasibility(constr, aTol=aTol):
+                if constr.active and not self.TestFeasibility(constr, aTol=aTol):
                     self.AddInfeasibility(name=c, constr=constr)
 
     def TestFeasibility(self, constr: pyo.Constraint, aTol=1e-5):
