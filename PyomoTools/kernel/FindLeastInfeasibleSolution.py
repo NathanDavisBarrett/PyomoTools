@@ -42,11 +42,30 @@ def ConfigureConstraint(constr: pmo.constraint):
 
     # Step 4, deactivate the original constraint
     constr.deactivate()
+    assert not constr.active
 
     return slackVar, lower, upper
 
 
-def AugmentModel(model: pmo.block):
+def lowerBound(var):
+    lb = var.bounds[0]
+    if lb is not None:
+        var.lb = None
+        return lb <= var
+    else:
+        return None
+
+
+def upperBound(var):
+    ub = var.bounds[1]
+    if ub is not None:
+        var.ub = None
+        return ub >= var
+    else:
+        return None
+
+
+def AugmentModel_AllConstraints(model: pmo.block):
     # Step 1, Change all variable bounds to explicit constraints (Thus they will have their slack variables added in step 2.)
     # TODO: Recognize and change over domain types.
     # Step 2, Detect and deactivate an objectives.
@@ -55,36 +74,66 @@ def AugmentModel(model: pmo.block):
     lowerBoundConstrs = deque([])
     upperBoundConstrs = deque([])
 
-    def lowerBound(var):
-        lb = var.bounds[0]
-        if lb is not None:
-            var.lb = None
-            return lb <= var
-        else:
-            return None
-
-    def upperBound(var):
-        ub = var.bounds[1]
-        if ub is not None:
-            var.ub = None
-            return ub >= var
-        else:
-            return None
-
     for c in model.children():
         if isinstance(c, (pmo.variable_list, pmo.variable_tuple)):
-            lowerBoundConstrs.extend(
-                [pmo.constraint(lowerBound(c[i])) for i in range(len(c))]
-            )
-            upperBoundConstrs.extend(
-                [pmo.constraint(upperBound(c[i])) for i in range(len(c))]
-            )
+            for i in range(len(c)):
+                lb = lowerBound(c[i])
+                if lb is not None:
+                    lb_contr = pmo.constraint(lb)
+                    slackVar, lower, upper = ConfigureConstraint(lb_contr)
+                    slackVars.append(slackVar)
+                    if lower is not None:
+                        lowerBoundConstrs.append(lower)
+                    if upper is not None:
+                        upperBoundConstrs.append(upper)
+                ub = upperBound(c[i])
+                if ub is not None:
+                    ub_contr = pmo.constraint(ub)
+                    slackVar, lower, upper = ConfigureConstraint(ub_contr)
+                    slackVars.append(slackVar)
+                    if lower is not None:
+                        lowerBoundConstrs.append(lower)
+                    if upper is not None:
+                        upperBoundConstrs.append(upper)
         elif isinstance(c, pmo.variable_dict):
-            lowerBoundConstrs.extend([pmo.constraint(lowerBound(c[i])) for i in c])
-            upperBoundConstrs.extend([pmo.constraint(upperBound(c[i])) for i in c])
+            for i in c:
+                lb = lowerBound(c[i])
+                if lb is not None:
+                    lb_contr = pmo.constraint(lb)
+                    slackVar, lower, upper = ConfigureConstraint(lb_contr)
+                    slackVars.append(slackVar)
+                    if lower is not None:
+                        lowerBoundConstrs.append(lower)
+                    if upper is not None:
+                        upperBoundConstrs.append(upper)
+                ub = upperBound(c[i])
+                if ub is not None:
+                    ub_constr = pmo.constraint(ub)
+                    slackVar, lower, upper = ConfigureConstraint(ub_constr)
+                    slackVars.append(slackVar)
+                    if lower is not None:
+                        lowerBoundConstrs.append(lower)
+                    if upper is not None:
+                        upperBoundConstrs.append(upper)
         elif isinstance(c, pmo.variable):
-            lowerBoundConstrs.append(pmo.constraint(lowerBound(c)))
-            upperBoundConstrs.append(pmo.constraint(upperBound(c)))
+            lb = lowerBound(c)
+            if lb is not None:
+                lb_contr = pmo.constraint(lb)
+                slackVar, lower, upper = ConfigureConstraint(lb_contr)
+                slackVars.append(slackVar)
+                if lower is not None:
+                    lowerBoundConstrs.append(lower)
+                if upper is not None:
+                    upperBoundConstrs.append(upper)
+            ub = upperBound(c)
+            if ub is not None:
+                ub_contr = pmo.constraint(ub)
+                slackVar, lower, upper = ConfigureConstraint(ub_contr)
+                slackVars.append(slackVar)
+                if lower is not None:
+                    lowerBoundConstrs.append(lower)
+                if upper is not None:
+                    upperBoundConstrs.append(upper)
 
         elif isinstance(c, (pmo.objective_list, pmo.objective_tuple)):
             for i in range(len(c)):
@@ -128,13 +177,213 @@ def AugmentModel(model: pmo.block):
     for c in model.children():
         if isinstance(c, (pmo.block_list, pmo.block_tuple)):
             for i in range(len(c)):
-                allSlackVars.extend(AugmentModel(c[i]))
+                allSlackVars.extend(AugmentModel_AllConstraints(c[i]))
         elif isinstance(c, pmo.block_dict):
             for i in c:
-                allSlackVars.extend(AugmentModel(c[i]))
+                allSlackVars.extend(AugmentModel_AllConstraints(c[i]))
         elif isinstance(c, pmo.block):
-            allSlackVars.extend(AugmentModel(c))
+            allSlackVars.extend(AugmentModel_AllConstraints(c))
     return allSlackVars
+
+
+def MapSpecificConstraint(originalModel, augmentedModel, relative_name):
+    relative_name_parts = relative_name.split(".")
+
+    local_name = relative_name_parts[0]
+    if "[" in local_name:
+        local_name_parts = local_name.split("[")
+        local_name = local_name_parts[0]
+        assert local_name_parts[1][-1] == "]", "Malformed variable/constraint name."
+        index_str = local_name_parts[1][:-1]
+    else:
+        index_str = None
+
+    original_target = getattr(originalModel, local_name)
+    augmented_target = getattr(augmentedModel, local_name)
+
+    # Find the actual index by comparing string representations
+    actual_index = None
+    if index_str is not None:
+        if isinstance(
+            original_target,
+            (
+                pmo.constraint_list,
+                pmo.constraint_tuple,
+                pmo.variable_list,
+                pmo.variable_tuple,
+                pmo.block_list,
+                pmo.block_tuple,
+            ),
+        ):
+            actual_index = int(index_str)
+        elif isinstance(
+            original_target, (pmo.constraint_dict, pmo.variable_dict, pmo.block_dict)
+        ):
+            for key in original_target:
+                if str(key) == index_str:
+                    actual_index = key
+                    break
+
+        if actual_index is None:
+            raise ValueError(f"Could not find index '{index_str}' in {local_name}")
+
+    if len(relative_name_parts) == 1:
+        # This is the terminal target
+        if actual_index is not None:
+            return augmented_target[actual_index]
+        else:
+            return augmented_target
+    else:
+        # Need to go deeper
+        sub_relative_name = ".".join(relative_name_parts[1:])
+        if actual_index is not None:
+            return MapSpecificConstraint(
+                original_target[actual_index],
+                augmented_target[actual_index],
+                sub_relative_name,
+            )
+        else:
+            return MapSpecificConstraint(
+                original_target, augmented_target, sub_relative_name
+            )
+
+
+def MapSpecificConstraints(
+    originalModel, augmentedModel, relax_only_these_constraints
+) -> list:
+    if relax_only_these_constraints is None:
+        return None
+
+    mapped_constraints = []
+    for target in relax_only_these_constraints:
+        mapped_target = MapSpecificConstraint(
+            originalModel, augmentedModel, target.name
+        )
+        mapped_constraints.append(mapped_target)
+    return mapped_constraints
+
+
+def AugmentModel_SpecificConstraints(
+    model: pmo.block, relax_only_these_constraints: list
+):
+    slackVars = deque([])  # Deque used for ultra-fast append operations.
+    lowerBoundConstrs = deque([])
+    upperBoundConstrs = deque([])
+    sub_blocks_to_process = deque([])
+    for target in relax_only_these_constraints:
+        if isinstance(target, pmo.constraint):
+            slackVar, lower, upper = ConfigureConstraint(target)
+            slackVars.append(slackVar)
+            if lower is not None:
+                lowerBoundConstrs.append(lower)
+            if upper is not None:
+                upperBoundConstrs.append(upper)
+        elif isinstance(target, (pmo.constraint_list, pmo.constraint_tuple)):
+            for i in range(len(target)):
+                slackVar, lower, upper = ConfigureConstraint(target[i])
+                slackVars.append(slackVar)
+                if lower is not None:
+                    lowerBoundConstrs.append(lower)
+                if upper is not None:
+                    upperBoundConstrs.append(upper)
+        elif isinstance(target, pmo.constraint_dict):
+            for i in target:
+                slackVar, lower, upper = ConfigureConstraint(target[i])
+                slackVars.append(slackVar)
+                if lower is not None:
+                    lowerBoundConstrs.append(lower)
+                if upper is not None:
+                    upperBoundConstrs.append(upper)
+        elif isinstance(target, pmo.variable):
+            ub = upperBound(target)
+            lb = lowerBound(target)
+            if ub is not None:
+                ub_constr = pmo.constraint(ub)
+                slackVar, lower, upper = ConfigureConstraint(ub_constr)
+                slackVars.append(slackVar)
+                if lower is not None:
+                    lowerBoundConstrs.append(lower)
+                if upper is not None:
+                    upperBoundConstrs.append(upper)
+            if lb is not None:
+                lb_constr = pmo.constraint(lb)
+                slackVar, lower, upper = ConfigureConstraint(lb_constr)
+                slackVars.append(slackVar)
+                if lower is not None:
+                    lowerBoundConstrs.append(lower)
+                if upper is not None:
+                    upperBoundConstrs.append(upper)
+        elif isinstance(target, (pmo.variable_list, pmo.variable_tuple)):
+            for i in range(len(target)):
+                ub = upperBound(target[i])
+                lb = lowerBound(target[i])
+                if ub is not None:
+                    ub_constr = pmo.constraint(ub)
+                    slackVar, lower, upper = ConfigureConstraint(ub_constr)
+                    slackVars.append(slackVar)
+                    if lower is not None:
+                        lowerBoundConstrs.append(lower)
+                    if upper is not None:
+                        upperBoundConstrs.append(upper)
+                if lb is not None:
+                    lb_constr = pmo.constraint(lb)
+                    slackVar, lower, upper = ConfigureConstraint(lb_constr)
+                    slackVars.append(slackVar)
+                    if lower is not None:
+                        lowerBoundConstrs.append(lower)
+                    if upper is not None:
+                        upperBoundConstrs.append(upper)
+        elif isinstance(target, pmo.variable_dict):
+            for i in target:
+                ub = upperBound(target[i])
+                lb = lowerBound(target[i])
+                if ub is not None:
+                    ub_constr = pmo.constraint(ub)
+                    slackVar, lower, upper = ConfigureConstraint(ub_constr)
+                    slackVars.append(slackVar)
+                    if lower is not None:
+                        lowerBoundConstrs.append(lower)
+                    if upper is not None:
+                        upperBoundConstrs.append(upper)
+                if lb is not None:
+                    lb_constr = pmo.constraint(lb)
+                    slackVar, lower, upper = ConfigureConstraint(lb_constr)
+                    slackVars.append(slackVar)
+                    if lower is not None:
+                        lowerBoundConstrs.append(lower)
+                    if upper is not None:
+                        upperBoundConstrs.append(upper)
+
+        elif isinstance(target, pmo.block):
+            sub_blocks_to_process.append(target)
+        elif isinstance(target, (pmo.block_list, pmo.block_tuple)):
+            for i in range(len(target)):
+                sub_blocks_to_process.append(target[i])
+        elif isinstance(target, pmo.block_dict):
+            for i in target:
+                sub_blocks_to_process.append(target[i])
+
+    model.slackVars = pmo.variable_list(slackVars)
+    model.lowerBoundConstrs = pmo.constraint_list(lowerBoundConstrs)
+    model.upperBoundConstrs = pmo.constraint_list(upperBoundConstrs)
+
+    allSlackVars = deque(model.slackVars)  # type: ignore
+    for sub_block in sub_blocks_to_process:
+        allSlackVars.extend(AugmentModel_AllConstraints(sub_block))
+
+    return allSlackVars
+
+
+def AugmentModel(
+    augmentedModel: pmo.block,
+    relax_only_these_constraints: list = None,
+):
+    if relax_only_these_constraints is None:
+        return AugmentModel_AllConstraints(augmentedModel)
+    else:
+        return AugmentModel_SpecificConstraints(
+            augmentedModel, relax_only_these_constraints
+        )
 
 
 def CopySolution(fromModel: pmo.block, toModel: pmo.block):
@@ -166,6 +415,7 @@ def FindLeastInfeasibleSolution(
     leastInfeasibleDefinition: LeastInfeasibleDefinition = LeastInfeasibleDefinition.L1_Norm,
     solver_args: tuple = (),
     solver_kwargs: dict = {},
+    relax_only_these_constraints: list = None,
     **kwargs,
 ):
     """
@@ -193,13 +443,20 @@ def FindLeastInfeasibleSolution(
         Any other arguments to pass to the solver's solve function.
     solver_kwargs: dict (optional, Default = {})
         Any other key-word arguments to pass to the solver's solve function.
+    relax_only_these_constraints: list (optional, Default = None)
+        If provided, only these constraints (constraint, constraint_list, block, block_list, etc. objects OR similar variable sets (bounds will be relaxed)) will be relaxed in the augmented model. Otherwise, all constraints will be relaxed.
     **kwargs: dict
         Other keyword arguments as needed by the leastInfeasibleDefinition
     """
 
     # Step 1: Augment the model
     augmentedModel = originalModel.clone()
-    slackVars = AugmentModel(augmentedModel)
+    slackVars = AugmentModel(
+        augmentedModel,
+        relax_only_these_constraints=MapSpecificConstraints(
+            originalModel, augmentedModel, relax_only_these_constraints
+        ),
+    )
 
     if leastInfeasibleDefinition == LeastInfeasibleDefinition.L1_Norm:
         augmentedModel.LEAST_INFEASIBLE_L1_OBJ = pmo.objective(
@@ -241,9 +498,12 @@ def FindLeastInfeasibleSolution(
         TerminationCondition.locallyOptimal,
         TerminationCondition.maxEvaluations,
     ]:
-        raise Exception(
-            f'Something has gone wrong. The solver terminated with condition "{result.solver.termination_condition}". The problem is likely due to variable bounds being defined the "domain" keyword in the variable definition. Please try using "bounds" keyword there.'
-        )
+        message = f'The solver terminated with condition "{result.solver.termination_condition}".'
+        if relax_only_these_constraints is not None:
+            message += " Note that only a subset of constraints were relaxed in this analysis. Even with these constraints relaxed, the solver could not find a feasible solution to the augmented problem. Please try relaxing more or all constraints."
+        else:
+            message += " This is caused by an unknown issue. Please report it as a bug."
+        raise Exception(message)
 
     if leastInfeasibleDefinition == LeastInfeasibleDefinition.Sequential:
         # Fix all slack vars that are not active.
@@ -264,9 +524,14 @@ def FindLeastInfeasibleSolution(
 
         result = solver.solve(augmentedModel, *solver_args, **solver_kwargs)
         if result.solver.termination_condition != TerminationCondition.optimal:
-            raise Exception(
-                'Something has gone wrong. The problem is likely due to variable bounds being defined the "domain" keyword in the variable definition. Please try using "bounds" keyword there.'
-            )
+            message = f'The solver terminated with condition "{result.solver.termination_condition}".'
+            if relax_only_these_constraints is not None:
+                message += " Note that only a subset of constraints were relaxed in this analysis. Even with these constraints relaxed, the solver could not find a feasible solution to the augmented problem. Please try relaxing more or all constraints."
+            else:
+                message += (
+                    " This is caused by an unknown issue. Please report it as a bug."
+                )
+            raise Exception(message)
 
     # Step 6: Copy the solution from the augmented model back to the original model.
     CopySolution(augmentedModel, originalModel)
