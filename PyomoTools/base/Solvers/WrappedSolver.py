@@ -19,6 +19,7 @@ class WrappedSolver:
         interactiveInfeasibilityReport: bool = False,
         solutionJsonFileName: str = "leastInfeasibleSolution.json",
         exception: bool = True,
+        warn: bool = True,
         defaultSolverOptions={},
         infeasibilityReportKwargs={},
     ):
@@ -28,6 +29,7 @@ class WrappedSolver:
         self.interactiveInfeasibilityReport = interactiveInfeasibilityReport
         self.solutionJsonFileName = solutionJsonFileName
         self.exception = exception
+        self.warn = warn
         for k in defaultSolverOptions:
             self.solver.options[k] = defaultSolverOptions[k]
         self.infeasibilityReportKwargs = infeasibilityReportKwargs
@@ -39,6 +41,7 @@ class WrappedSolver:
         relax_only_these_constraints: list = None,
         retry_original_objective=False,
         exception: bool = None,
+        warn: bool = True,
         **kwargs,
     ):
         result = self.solver.solve(model, *args, **kwargs)
@@ -89,7 +92,10 @@ class WrappedSolver:
                 exception = self.exception
             if exception:
                 raise ValueError(message)
-            else:
+
+            if warn is None:
+                warn = self.warn
+            if warn:
                 warnings.warn(message)
 
         return result
