@@ -32,7 +32,7 @@ class WrappedSolver:
             self.solver.options[k] = defaultSolverOptions[k]
         self.infeasibilityReportKwargs = infeasibilityReportKwargs
 
-    def solve(self, model, *args, **kwargs):
+    def solve(self, model, *args, relax_only_these_constraints: list = None, **kwargs):
         result = self.solver.solve(model, *args, **kwargs)
         if result.solver.termination_condition in [
             pmo.TerminationCondition.infeasible,
@@ -47,6 +47,7 @@ class WrappedSolver:
                 leastInfeasibleDefinition=self.leastInfeasibleDefinition,
                 solver_args=args,
                 solver_kwargs=kwargs,
+                relax_only_these_constraints=relax_only_these_constraints,
             )
             if self.solutionJsonFileName is not None:
                 ModelToJson(model, self.solutionJsonFileName)
