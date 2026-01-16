@@ -66,24 +66,32 @@ def upperBound(var):
 
 
 def DeactivateAllObjectives(model: pmo.block):
+    active_objs = deque([])
     for c in model.children():
         if isinstance(c, (pmo.objective_list, pmo.objective_tuple)):
             for i in range(len(c)):
+                if c[i].active:
+                    active_objs.append(c[i])
                 c[i].deactivate()
         elif isinstance(c, pmo.objective_dict):
             for i in c:
+                if c[i].active:
+                    active_objs.append(c[i])
                 c[i].deactivate()
         elif isinstance(c, pmo.objective):
+            if c.active:
+                active_objs.append(c)
             c.deactivate()
 
         elif isinstance(c, (pmo.block_list, pmo.block_tuple)):
             for i in range(len(c)):
-                DeactivateAllObjectives(c[i])
+                active_objs.extend(DeactivateAllObjectives(c[i]))
         elif isinstance(c, pmo.block_dict):
             for i in c:
-                DeactivateAllObjectives(c[i])
+                active_objs.extend(DeactivateAllObjectives(c[i]))
         elif isinstance(c, pmo.block):
-            DeactivateAllObjectives(c)
+            active_objs.extend(DeactivateAllObjectives(c))
+    return active_objs
 
 
 def AugmentModel_AllConstraints(model: pmo.block):
@@ -390,7 +398,6 @@ def AugmentModel(
     augmentedModel: pmo.block,
     relax_only_these_constraints: list = None,
 ):
-    DeactivateAllObjectives(augmentedModel)
     if relax_only_these_constraints is None:
         return AugmentModel_AllConstraints(augmentedModel)
     else:
@@ -422,6 +429,31 @@ def CopySolution(fromModel: pmo.block, toModel: pmo.block):
             CopySolution(fromC, toC)
 
 
+def TestSolverResult(
+    result,
+    all_constrs_relaxed: bool,
+    accepted_conditions: list = [
+        TerminationCondition.optimal,
+        TerminationCondition.maxTimeLimit,
+        TerminationCondition.maxIterations,
+        TerminationCondition.minFunctionValue,
+        TerminationCondition.minStepLength,
+        TerminationCondition.globallyOptimal,
+        TerminationCondition.locallyOptimal,
+        TerminationCondition.maxEvaluations,
+    ],
+):
+    if isinstance(accepted_conditions, TerminationCondition):
+        accepted_conditions = [accepted_conditions]
+    if result.solver.termination_condition not in accepted_conditions:
+        message = f'The solver terminated with condition "{result.solver.termination_condition}".'
+        if not all_constrs_relaxed:
+            message += " Note that only a subset of constraints were relaxed in this analysis. Even with these constraints relaxed, the solver could not find a feasible solution to the augmented problem. Please try relaxing more or all constraints."
+        else:
+            message += " This is caused by an unknown issue. Please report it as a bug."
+        raise Exception(message)
+
+
 def FindLeastInfeasibleSolution(
     originalModel: pmo.block,
     solver,
@@ -429,6 +461,7 @@ def FindLeastInfeasibleSolution(
     solver_args: tuple = (),
     solver_kwargs: dict = {},
     relax_only_these_constraints: list = None,
+    retry_original_objective: bool = False,
     **kwargs,
 ):
     """
@@ -458,12 +491,15 @@ def FindLeastInfeasibleSolution(
         Any other key-word arguments to pass to the solver's solve function.
     relax_only_these_constraints: list (optional, Default = None)
         If provided, only these constraints (constraint, constraint_list, block, block_list, etc. objects OR similar variable sets (bounds will be relaxed)) will be relaxed in the augmented model. Otherwise, all constraints will be relaxed.
+    retry_original_objective: bool (optional, Default = False)
+        If True, after finding the degree of least infeasibility, using the leastInfeasibleDefinition, this degree will be fixed as a constraint. At this point the original objective will be re-activated and the solver will attempt to solve the slightly relaxed model to optimality.
     **kwargs: dict
         Other keyword arguments as needed by the leastInfeasibleDefinition
     """
 
     # Step 1: Augment the model
     augmentedModel = originalModel.clone()
+    original_objectives = DeactivateAllObjectives(augmentedModel)
     slackVars = AugmentModel(
         augmentedModel,
         relax_only_these_constraints=MapSpecificConstraints(
@@ -472,12 +508,14 @@ def FindLeastInfeasibleSolution(
     )
 
     if leastInfeasibleDefinition == LeastInfeasibleDefinition.L1_Norm:
-        augmentedModel.LEAST_INFEASIBLE_L1_OBJ = pmo.objective(
-            sum(slackVars), sense=pmo.minimize
+        new_objective_expr = sum(slackVars)
+        new_objective = augmentedModel.LEAST_INFEASIBLE_L1_OBJ = pmo.objective(
+            new_objective_expr, sense=pmo.minimize
         )
     elif leastInfeasibleDefinition == LeastInfeasibleDefinition.L2_Norm:
-        augmentedModel.LEAST_INFEASIBLE_L2_OBJ = pmo.objective(
-            sum(s**2 for s in slackVars), sense=pmo.minimize
+        new_objective_expr = sum(s**2 for s in slackVars)
+        new_objective = augmentedModel.LEAST_INFEASIBLE_L2_OBJ = pmo.objective(
+            new_objective_expr, sense=pmo.minimize
         )
     elif leastInfeasibleDefinition in [
         LeastInfeasibleDefinition.Num_Violated_Constrs,
@@ -493,7 +531,12 @@ def FindLeastInfeasibleSolution(
 
         augmentedModel.slackActive_Definition = pmo.constraint_list([pmo.constraint(slackVars[i] <= BigM * augmentedModel.slackActive[i]) for i in range(len(slackVars))])  # type: ignore
 
-        augmentedModel.LEAST_INFEASIBLE_NUM_VIOLATED_OBJ = pmo.objective(sum(augmentedModel.slackActive[i] for i in range(len(slackVars))), sense=pmo.minimize)  # type: ignore
+        new_objective_expr = sum(
+            augmentedModel.slackActive[i] for i in range(len(slackVars))
+        )
+        new_objective = augmentedModel.LEAST_INFEASIBLE_NUM_VIOLATED_OBJ = (
+            pmo.objective(new_objective_expr, sense=pmo.minimize)
+        )
     else:
         raise Exception(
             f"{leastInfeasibleDefinition} is not a recognized definition. Please refer to options in the LeastInfeasibleDefinition enum."
@@ -501,22 +544,7 @@ def FindLeastInfeasibleSolution(
 
     # Step 5: Solve the augmented model.
     result = solver.solve(augmentedModel, *solver_args, **solver_kwargs)
-    if result.solver.termination_condition not in [
-        TerminationCondition.optimal,
-        TerminationCondition.maxTimeLimit,
-        TerminationCondition.maxIterations,
-        TerminationCondition.minFunctionValue,
-        TerminationCondition.minStepLength,
-        TerminationCondition.globallyOptimal,
-        TerminationCondition.locallyOptimal,
-        TerminationCondition.maxEvaluations,
-    ]:
-        message = f'The solver terminated with condition "{result.solver.termination_condition}".'
-        if relax_only_these_constraints is not None:
-            message += " Note that only a subset of constraints were relaxed in this analysis. Even with these constraints relaxed, the solver could not find a feasible solution to the augmented problem. Please try relaxing more or all constraints."
-        else:
-            message += " This is caused by an unknown issue. Please report it as a bug."
-        raise Exception(message)
+    TestSolverResult(result, relax_only_these_constraints is None)
 
     if leastInfeasibleDefinition == LeastInfeasibleDefinition.Sequential:
         # Fix all slack vars that are not active.
@@ -531,20 +559,28 @@ def FindLeastInfeasibleSolution(
         augmentedModel.slackActive_Definition.deactivate()
         augmentedModel.LEAST_INFEASIBLE_NUM_VIOLATED_OBJ.deactivate()
 
-        augmentedModel.LEAST_INFEASIBLE_L1_OBJ = pmo.Objective(
-            expr=sum(slackVars), sense=pmo.minimize
+        new_objective_expr = sum(slackVars)
+        new_objective = augmentedModel.LEAST_INFEASIBLE_L1_OBJ = pmo.Objective(
+            expr=new_objective_expr, sense=pmo.minimize
         )
 
         result = solver.solve(augmentedModel, *solver_args, **solver_kwargs)
-        if result.solver.termination_condition != TerminationCondition.optimal:
-            message = f'The solver terminated with condition "{result.solver.termination_condition}".'
-            if relax_only_these_constraints is not None:
-                message += " Note that only a subset of constraints were relaxed in this analysis. Even with these constraints relaxed, the solver could not find a feasible solution to the augmented problem. Please try relaxing more or all constraints."
-            else:
-                message += (
-                    " This is caused by an unknown issue. Please report it as a bug."
-                )
-            raise Exception(message)
+        TestSolverResult(
+            result, relax_only_these_constraints is None, TerminationCondition.optimal
+        )
 
-    # Step 6: Copy the solution from the augmented model back to the original model.
+    # Step 6 (optional): Retry original objective if requested.
+    if retry_original_objective:
+        new_objective_value = pmo.value(new_objective)
+        new_objective.deactivate()
+        augmentedModel.NEW_OBJECTIVE_BOUND = pmo.constraint(
+            new_objective.expr <= new_objective_value
+        )
+        for obj in original_objectives:
+            obj.activate()
+
+        result = solver.solve(augmentedModel, *solver_args, **solver_kwargs)
+        TestSolverResult(result, relax_only_these_constraints is None)
+
+    # Step 7: Copy the solution from the augmented model back to the original model.
     CopySolution(augmentedModel, originalModel)

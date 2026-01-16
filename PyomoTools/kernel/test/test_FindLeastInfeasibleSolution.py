@@ -449,3 +449,59 @@ def test_MapSpecificConstraint_ComplexIndexing():
             )
             assert isinstance(mapped_constraint, pmo.constraint)
             assert mapped_constraint is cloned_model.blocks[i].constraints[j]
+
+
+def test_RetryOriginalObjective():
+    """Test that retry_original_objective optimizes the original objective while maintaining minimal infeasibility.
+
+    This test uses conflicting constraints where multiple solutions achieve the same
+    minimum L1-norm, but the original objective prefers one solution over others.
+    """
+    model = pmo.block()
+    model.x = pmo.variable(lb=0, ub=10)
+    model.y = pmo.variable(lb=0, ub=10)
+
+    # Create conflicting constraints:
+    # c1 wants x >= 8, c3 wants x <= 3 → any x ∈ [3,8] gives total slack of 5
+    # c2 wants y >= 8, c4 wants y <= 3 → any y ∈ [3,8] gives total slack of 5
+    # Total minimum slack = 10, achieved by any (x,y) in [3,8] × [3,8]
+    model.c1 = pmo.constraint(expr=model.x >= 8)
+    model.c2 = pmo.constraint(expr=model.y >= 8)
+    model.c3 = pmo.constraint(expr=model.x <= 3)
+    model.c4 = pmo.constraint(expr=model.y <= 3)
+
+    # Original objective: minimize x + 2*y
+    # Among all solutions with minimal infeasibility, this prefers x=3, y=3
+    model.obj = pmo.objective(expr=model.x + 2 * model.y, sense=pmo.minimize)
+
+    # First, test without retry_original_objective
+    model_copy1 = model.clone()
+    FindLeastInfeasibleSolution(
+        model_copy1, DefaultSolver("LP"), retry_original_objective=False, tee=True
+    )
+
+    # Now test with retry_original_objective
+    model_copy2 = model.clone()
+    FindLeastInfeasibleSolution(
+        model_copy2, DefaultSolver("LP"), retry_original_objective=True, tee=True
+    )
+
+    x1, y1 = pmo.value(model_copy1.x), pmo.value(model_copy1.y)
+    x2, y2 = pmo.value(model_copy2.x), pmo.value(model_copy2.y)
+
+    # Calculate total slack for both solutions
+    slack1 = abs(x1 - 8) + abs(x1 - 3) + abs(y1 - 8) + abs(y1 - 3)
+    slack2 = abs(x2 - 8) + abs(x2 - 3) + abs(y2 - 8) + abs(y2 - 3)
+
+    # Both should have the same level of infeasibility (total slack = 10)
+    assert np.allclose(slack1, 10, atol=1e-4)
+    assert np.allclose(slack2, 10, atol=1e-4)
+
+    # The objective value with retry should be better (lower) or equal
+    obj1 = x1 + 2 * y1
+    obj2 = x2 + 2 * y2
+    assert obj2 <= obj1 + 1e-4
+
+    # With retry_original_objective, we should get x≈3, y≈3 to minimize x+2y
+    assert np.allclose(x2, 3, atol=1e-4)
+    assert np.allclose(y2, 3, atol=1e-4)
