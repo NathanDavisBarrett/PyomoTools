@@ -65,6 +65,27 @@ def upperBound(var):
         return None
 
 
+def DeactivateAllObjectives(model: pmo.block):
+    for c in model.children():
+        if isinstance(c, (pmo.objective_list, pmo.objective_tuple)):
+            for i in range(len(c)):
+                c[i].deactivate()
+        elif isinstance(c, pmo.objective_dict):
+            for i in c:
+                c[i].deactivate()
+        elif isinstance(c, pmo.objective):
+            c.deactivate()
+
+        elif isinstance(c, (pmo.block_list, pmo.block_tuple)):
+            for i in range(len(c)):
+                DeactivateAllObjectives(c[i])
+        elif isinstance(c, pmo.block_dict):
+            for i in c:
+                DeactivateAllObjectives(c[i])
+        elif isinstance(c, pmo.block):
+            DeactivateAllObjectives(c)
+
+
 def AugmentModel_AllConstraints(model: pmo.block):
     # Step 1, Change all variable bounds to explicit constraints (Thus they will have their slack variables added in step 2.)
     # TODO: Recognize and change over domain types.
@@ -134,15 +155,6 @@ def AugmentModel_AllConstraints(model: pmo.block):
                     lowerBoundConstrs.append(lower)
                 if upper is not None:
                     upperBoundConstrs.append(upper)
-
-        elif isinstance(c, (pmo.objective_list, pmo.objective_tuple)):
-            for i in range(len(c)):
-                c[i].deactivate()
-        elif isinstance(c, pmo.objective_dict):
-            for i in c:
-                c[i].deactivate()
-        elif isinstance(c, pmo.objective):
-            c.deactivate()
 
         elif isinstance(c, (pmo.constraint_list, pmo.constraint_tuple)):
             for i in range(len(c)):
@@ -378,6 +390,7 @@ def AugmentModel(
     augmentedModel: pmo.block,
     relax_only_these_constraints: list = None,
 ):
+    DeactivateAllObjectives(augmentedModel)
     if relax_only_these_constraints is None:
         return AugmentModel_AllConstraints(augmentedModel)
     else:
