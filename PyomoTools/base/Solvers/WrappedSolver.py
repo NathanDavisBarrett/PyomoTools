@@ -38,6 +38,7 @@ class WrappedSolver:
         *args,
         relax_only_these_constraints: list = None,
         retry_original_objective=False,
+        exception: bool = None,
         **kwargs,
     ):
         result = self.solver.solve(model, *args, **kwargs)
@@ -84,7 +85,9 @@ class WrappedSolver:
                 repMessage = ""
 
             message = f"The model was infeasible.\n{repMessage}{solMessage}"
-            if self.exception:
+            if exception is None:
+                exception = self.exception
+            if exception:
                 raise ValueError(message)
             else:
                 warnings.warn(message)
