@@ -7,6 +7,7 @@ from .AssertPyomoModelsEqual import AssertPyomoModelsEqual
 from .RelaxIntegerVarsKernel import RelaxIntegerVarsKernel
 from .ParallelComponentIterator import ParallelComponentIterator
 from .IntegerRelaxationReport import IntegerRelaxationReport
+from .IncorporateDuals import IncorporateDuals
 
 __all__ = [
     "GenerateExpressionStrings",
@@ -17,4 +18,5 @@ __all__ = [
     "RelaxIntegerVarsKernel",
     "ParallelComponentIterator",
     "IntegerRelaxationReport",
+    "IncorporateDuals",
 ]
