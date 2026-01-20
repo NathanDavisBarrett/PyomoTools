@@ -49,7 +49,7 @@ def Generate_MIP_Duals(model: pmo.block, solver=None) -> None:
         lp_model.dual = pmo.suffix(direction=pmo.suffix.IMPORT)
 
     # Solve the LP relaxation
-    solver.solve(lp_model)
+    solver.solve(lp_model, warmstart=True)
 
     # Copy over duals to the original model
     if not hasattr(model, "dual"):
