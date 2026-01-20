@@ -1,7 +1,7 @@
 import pytest
 import pyomo.kernel as pmo
 from ..IncorporateDuals import IncorporateDuals
-from ...base.Solvers import DefaultSolver
+from ....base.Solvers import DefaultSolver
 
 
 @pytest.fixture
