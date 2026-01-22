@@ -1,6 +1,7 @@
 import pyomo.kernel as pmo
 
 from .FormatKey import FormatKey
+from ...util.NaturalSortKey import natural_sort_key
 
 
 def ModelToDict(model: pmo.block, reprKeys: bool = True):
@@ -13,7 +14,7 @@ def ModelToDict(model: pmo.block, reprKeys: bool = True):
         elif isinstance(c, pmo.variable_dict):
             dct[cName] = {
                 FormatKey(repr(k) if reprKeys else k): pmo.value(c[k], exception=False)
-                for k in c
+                for k in sorted(c.keys(), key=natural_sort_key)
             }
         elif isinstance(c, pmo.variable):
             dct[cName] = pmo.value(c, exception=False)
@@ -22,7 +23,8 @@ def ModelToDict(model: pmo.block, reprKeys: bool = True):
             dct[cName] = [ModelToDict(c[i]) for i in range(len(c))]
         elif isinstance(c, pmo.block_dict):
             dct[cName] = {
-                FormatKey(repr(k) if reprKeys else k): ModelToDict(c[k]) for k in c
+                FormatKey(repr(k) if reprKeys else k): ModelToDict(c[k])
+                for k in sorted(c.keys(), key=natural_sort_key)
             }
         elif isinstance(c, pmo.block):
             dct[cName] = ModelToDict(c)
