@@ -1,4 +1,5 @@
 from .GenerateExpressionString import GenerateExpressionStrings
+from .VisualizeExpression import visualize_expression
 
 
 def GenerateExpressionVisualization(expr):
@@ -15,9 +16,6 @@ def GenerateExpressionVisualization(expr):
     str:
         A string visualization of the expression.
     """
-    # Lazy import to avoid circular dependency
-    from .ParseNumericExpressionString import visualize_expression
-
     symStr, numStr = GenerateExpressionStrings(expr)
     visualization = visualize_expression(numStr)
 
