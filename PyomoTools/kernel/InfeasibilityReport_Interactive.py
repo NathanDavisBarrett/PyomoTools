@@ -5,6 +5,7 @@ import pyomo.kernel as pmo
 import numpy as np
 import warnings
 import sys
+from typing import Tuple
 from PyQt5.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -13,6 +14,7 @@ from PyQt5.QtWidgets import (
     QWidget,
     QTreeWidget,
     QTreeWidgetItem,
+    QTreeWidgetItemIterator,
     QTextEdit,
     QSplitter,
     QCheckBox,
@@ -176,13 +178,22 @@ class InfeasibilityReportWidget(QMainWindow):
     """
 
     def __init__(
-        self, model, aTol=1e-3, ignoreIncompleteConstraints=False, parent=None
+        self,
+        model,
+        aTol=1e-3,
+        ignoreIncompleteConstraints=False,
+        parent=None,
+        windowTitle="Infeasibility Report",
     ):
         super().__init__(parent)
         self.model = model
         self.aTol = aTol
         self.ignoreIncompleteConstraints = ignoreIncompleteConstraints
         self.show_only_infeasibilities = True
+
+        # Track tree state for preservation
+        self.expanded_items = set()  # Paths of expanded items
+        self.last_clicked_path = None  # Path of last clicked item
 
         # Analyze the model and build data structure
         self.root_block = self._analyze_model()
@@ -192,7 +203,7 @@ class InfeasibilityReportWidget(QMainWindow):
         self._populate_tree()
 
         # Set window properties
-        self.setWindowTitle("Infeasibility Report")
+        self.setWindowTitle(windowTitle)
         self.setGeometry(100, 100, 1200, 800)
 
     def _setup_ui(self):
@@ -216,6 +227,14 @@ class InfeasibilityReportWidget(QMainWindow):
         self.filter_checkbox.setChecked(self.show_only_infeasibilities)
         self.filter_checkbox.stateChanged.connect(self._on_filter_changed)
         control_layout.addWidget(self.filter_checkbox)
+
+        # Filter text box
+        from PyQt5.QtWidgets import QLineEdit
+
+        self.filter_textbox = QLineEdit()
+        self.filter_textbox.setPlaceholderText("Filter by visualization text...")
+        self.filter_textbox.textChanged.connect(self._on_filter_text_changed)
+        control_layout.addWidget(self.filter_textbox)
 
         # Summary label
         self.summary_label = QLabel()
@@ -428,12 +447,47 @@ class InfeasibilityReportWidget(QMainWindow):
 
     def _populate_tree(self):
         """Populate the tree widget with constraints."""
+        # Save current tree state
+        self._save_tree_state()
+
         self.tree_widget.clear()
-        self._add_block_to_tree(self.root_block, None)
+        filter_text = (
+            self.filter_textbox.text().strip().lower()
+            if hasattr(self, "filter_textbox")
+            else ""
+        )
+        self._add_block_to_tree(self.root_block, None, filter_text)
         self.tree_widget.collapseAll()
 
-    def _add_block_to_tree(self, block_data, parent_item):
+        # Restore tree state
+        self._restore_tree_state()
+
+    def _add_block_to_tree(self, block_data, parent_item, filter_text=""):
         """Recursively add block data to the tree."""
+
+        # Determine if this block or any of its children match the filter
+        def block_matches(block_data):
+            # Check constraints
+            for constraint_data in block_data.constraints:
+                if self._constraint_matches_filter(constraint_data, filter_text):
+                    return True
+            # Check containers
+            for container_data in block_data.constraint_containers.values():
+                if self._container_matches_filter(container_data, filter_text):
+                    return True
+            # Check sub-blocks
+            for sub_block_data in block_data.sub_blocks.values():
+                if block_matches(sub_block_data):
+                    return True
+            # Check block containers
+            for container_data in block_data.block_containers.values():
+                if self._container_matches_filter(container_data, filter_text):
+                    return True
+            return False
+
+        if filter_text and not block_matches(block_data):
+            return  # Skip this block if nothing matches
+
         # Create tree item for this block
         if parent_item is None:
             block_item = QTreeWidgetItem(self.tree_widget)
@@ -449,6 +503,10 @@ class InfeasibilityReportWidget(QMainWindow):
         for constraint_data in block_data.constraints:
             # Filter constraints if needed
             if self.show_only_infeasibilities and not constraint_data.is_violated:
+                continue
+            if filter_text and not self._constraint_matches_filter(
+                constraint_data, filter_text
+            ):
                 continue
 
             constraint_item = QTreeWidgetItem(block_item)
@@ -471,7 +529,13 @@ class InfeasibilityReportWidget(QMainWindow):
                 and container_data.num_infeasibilities == 0
             ):
                 continue
-            self._add_constraint_container_to_tree(container_data, block_item)
+            if filter_text and not self._container_matches_filter(
+                container_data, filter_text
+            ):
+                continue
+            self._add_constraint_container_to_tree(
+                container_data, block_item, filter_text
+            )
 
         # Add single sub-blocks
         for sub_block_data in block_data.sub_blocks.values():
@@ -481,7 +545,7 @@ class InfeasibilityReportWidget(QMainWindow):
                 and sub_block_data.num_infeasibilities == 0
             ):
                 continue
-            self._add_block_to_tree(sub_block_data, block_item)
+            self._add_block_to_tree(sub_block_data, block_item, filter_text)
 
         # Add block containers (lists, tuples, dicts)
         for container_data in block_data.block_containers.values():
@@ -491,10 +555,20 @@ class InfeasibilityReportWidget(QMainWindow):
                 and container_data.num_infeasibilities == 0
             ):
                 continue
-            self._add_block_container_to_tree(container_data, block_item)
+            if filter_text and not self._container_matches_filter(
+                container_data, filter_text
+            ):
+                continue
+            self._add_block_container_to_tree(container_data, block_item, filter_text)
 
-    def _add_constraint_container_to_tree(self, container_data, parent_item):
+    def _add_constraint_container_to_tree(
+        self, container_data, parent_item, filter_text=""
+    ):
         """Add a constraint container (list, tuple, dict) to the tree."""
+        if filter_text and not self._container_matches_filter(
+            container_data, filter_text
+        ):
+            return
         container_item = QTreeWidgetItem(parent_item)
         container_item.setText(
             0, container_data.get_display_name(self.show_only_infeasibilities)
@@ -507,6 +581,10 @@ class InfeasibilityReportWidget(QMainWindow):
             constraint_data = container_data.items[index]
             # Filter constraints if needed
             if self.show_only_infeasibilities and not constraint_data.is_violated:
+                continue
+            if filter_text and not self._constraint_matches_filter(
+                constraint_data, filter_text
+            ):
                 continue
 
             constraint_item = QTreeWidgetItem(container_item)
@@ -521,8 +599,12 @@ class InfeasibilityReportWidget(QMainWindow):
             if not constraint_data.is_active:
                 constraint_item.setForeground(0, Qt.gray)
 
-    def _add_block_container_to_tree(self, container_data, parent_item):
+    def _add_block_container_to_tree(self, container_data, parent_item, filter_text=""):
         """Add a block container (list, tuple, dict) to the tree."""
+        if filter_text and not self._container_matches_filter(
+            container_data, filter_text
+        ):
+            return
         container_item = QTreeWidgetItem(parent_item)
         container_item.setText(
             0, container_data.get_display_name(self.show_only_infeasibilities)
@@ -537,6 +619,10 @@ class InfeasibilityReportWidget(QMainWindow):
             if (
                 self.show_only_infeasibilities
                 and sub_block_data.num_infeasibilities == 0
+            ):
+                continue
+            if filter_text and not self._block_matches_filter(
+                sub_block_data, filter_text
             ):
                 continue
 
@@ -554,6 +640,10 @@ class InfeasibilityReportWidget(QMainWindow):
             for constraint_data in sub_block_data.constraints:
                 if self.show_only_infeasibilities and not constraint_data.is_violated:
                     continue
+                if filter_text and not self._constraint_matches_filter(
+                    constraint_data, filter_text
+                ):
+                    continue
                 constraint_item = QTreeWidgetItem(index_item)
                 constraint_item.setText(0, constraint_data.get_display_name())
                 constraint_item.setData(0, Qt.UserRole, ("constraint", constraint_data))
@@ -569,7 +659,13 @@ class InfeasibilityReportWidget(QMainWindow):
                     and child_container.num_infeasibilities == 0
                 ):
                     continue
-                self._add_constraint_container_to_tree(child_container, index_item)
+                if filter_text and not self._container_matches_filter(
+                    child_container, filter_text
+                ):
+                    continue
+                self._add_constraint_container_to_tree(
+                    child_container, index_item, filter_text
+                )
 
             # Add single sub-blocks
             for child_block in sub_block_data.sub_blocks.values():
@@ -578,7 +674,7 @@ class InfeasibilityReportWidget(QMainWindow):
                     and child_block.num_infeasibilities == 0
                 ):
                     continue
-                self._add_block_to_tree(child_block, index_item)
+                self._add_block_to_tree(child_block, index_item, filter_text)
 
             # Add block containers
             for child_container in sub_block_data.block_containers.values():
@@ -587,7 +683,55 @@ class InfeasibilityReportWidget(QMainWindow):
                     and child_container.num_infeasibilities == 0
                 ):
                     continue
-                self._add_block_container_to_tree(child_container, index_item)
+                if filter_text and not self._container_matches_filter(
+                    child_container, filter_text
+                ):
+                    continue
+                self._add_block_container_to_tree(
+                    child_container, index_item, filter_text
+                )
+
+    def _constraint_matches_filter(self, constraint_data, filter_text):
+        if not filter_text:
+            return True
+        # Check if filter_text is in the visualization (case-insensitive)
+        return filter_text in constraint_data.visualization.lower()
+
+    def _container_matches_filter(self, container_data, filter_text):
+        if not filter_text:
+            return True
+        for item in container_data.items.values():
+            if isinstance(item, InfeasibilityData):
+                if self._constraint_matches_filter(item, filter_text):
+                    return True
+            elif isinstance(item, BlockData):
+                if self._block_matches_filter(item, filter_text):
+                    return True
+        return False
+
+    def _block_matches_filter(self, block_data, filter_text):
+        if not filter_text:
+            return True
+        # Check constraints
+        for constraint_data in block_data.constraints:
+            if self._constraint_matches_filter(constraint_data, filter_text):
+                return True
+        # Check containers
+        for container_data in block_data.constraint_containers.values():
+            if self._container_matches_filter(container_data, filter_text):
+                return True
+        # Check sub-blocks
+        for sub_block_data in block_data.sub_blocks.values():
+            if self._block_matches_filter(sub_block_data, filter_text):
+                return True
+        # Check block containers
+        for container_data in block_data.block_containers.values():
+            if self._container_matches_filter(container_data, filter_text):
+                return True
+        return False
+
+    def _on_filter_text_changed(self, text):
+        self._populate_tree()
 
     def _on_filter_changed(self, state):
         """Handle filter checkbox state change."""
@@ -600,6 +744,9 @@ class InfeasibilityReportWidget(QMainWindow):
         data = item.data(0, Qt.UserRole)
         if data is None:
             return
+
+        # Save the path of the clicked item
+        self.last_clicked_path = self._get_item_path(item)
 
         item_type, item_data = data
 
@@ -709,6 +856,51 @@ class InfeasibilityReportWidget(QMainWindow):
 
         self.text_viewer.setHtml(summary)
 
+    def _get_item_path(self, item):
+        """Get the full path of a tree item as a tuple of text labels."""
+        path = []
+        current = item
+        while current is not None:
+            path.insert(0, current.text(0))
+            current = current.parent()
+        return tuple(path)
+
+    def _save_tree_state(self):
+        """Save the expanded state of all tree items."""
+        self.expanded_items = set()
+        iterator = QTreeWidgetItemIterator(self.tree_widget)
+        while iterator.value():
+            item = iterator.value()
+            if item.isExpanded():
+                path = self._get_item_path(item)
+                self.expanded_items.add(path)
+            iterator += 1
+
+    def _restore_tree_state(self):
+        """Restore the expanded state of tree items."""
+        # First, restore expanded states
+        iterator = QTreeWidgetItemIterator(self.tree_widget)
+        last_clicked_item = None
+
+        while iterator.value():
+            item = iterator.value()
+            path = self._get_item_path(item)
+
+            # Restore expanded state
+            if path in self.expanded_items:
+                item.setExpanded(True)
+
+            # Track if this is the last clicked item
+            if path == self.last_clicked_path:
+                last_clicked_item = item
+
+            iterator += 1
+
+        # Scroll to and select the last clicked item if found
+        if last_clicked_item is not None:
+            self.tree_widget.scrollToItem(last_clicked_item)
+            self.tree_widget.setCurrentItem(last_clicked_item)
+
 
 class InfeasibilityReport_Interactive:
     """
@@ -737,7 +929,11 @@ class InfeasibilityReport_Interactive:
         self.app = None
         self.widget = None
 
-    def show(self):
+    def show(
+        self,
+        windowTitle="Infeasibility Report",
+        geometry: Tuple[int, int, int, int] = None,
+    ):
         """
         Display the interactive infeasibility report window.
         """
@@ -749,8 +945,13 @@ class InfeasibilityReport_Interactive:
 
         # Create and show the widget
         self.widget = InfeasibilityReportWidget(
-            self.model, self.aTol, self.ignoreIncompleteConstraints
+            self.model,
+            self.aTol,
+            self.ignoreIncompleteConstraints,
+            windowTitle=windowTitle,
         )
+        if geometry is not None:
+            self.widget.setGeometry(*geometry)
         self.widget.show()
 
         # If we created the app, run the event loop
