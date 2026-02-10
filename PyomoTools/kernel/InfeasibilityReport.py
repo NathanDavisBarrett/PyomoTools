@@ -269,7 +269,7 @@ class InfeasibilityReport:
     def __len__(self):
         return self.numInfeas + sum(r.numInfeas for r in self.sub_reports.values())
 
-    def to_string(self, recursionDepth=1):
+    def to_string(self, recursionDepth=1, include_evaluations: bool = True):
         """
         A function to convert this report to a string.
         """
@@ -285,6 +285,10 @@ class InfeasibilityReport:
         fullPad = f"\n{leftPad}"
 
         for infeas in self.Iterator():
+            if not include_evaluations:
+                infeas = [
+                    infeas[0],
+                ]
             lines.append(leftPad + fullPad.join(infeas))
             lines.append(leftPad)
         # lines.append(leftPad)
@@ -293,7 +297,9 @@ class InfeasibilityReport:
 
         subResults = []
         for subReport in self.sub_reports.values():
-            subResults.append(subReport.to_string(recursionDepth + 1) + fullPad)
+            subResults.append(
+                subReport.to_string(recursionDepth + 1, include_evaluations) + fullPad
+            )
 
         totalResult = myResult
         if len(subResults) > 0:
@@ -313,9 +319,9 @@ class InfeasibilityReport:
         """
         return self.to_string()
 
-    def WriteFile(self, fileName: str):
+    def WriteFile(self, fileName: str, include_evaluations: bool = True):
         """
         A function to write the output to a file.
         """
         with open(fileName, "w", encoding="utf-8") as f:
-            f.write(str(self))
+            f.write(self.to_string(include_evaluations=include_evaluations))

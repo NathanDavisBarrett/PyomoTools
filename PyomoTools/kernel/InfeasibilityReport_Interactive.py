@@ -1,5 +1,6 @@
 from ..base.GenerateExpressionVisualization import GenerateExpressionVisualization
 from ..util.NaturalSortKey import natural_sort_key
+import html
 
 import pyomo.kernel as pmo
 import numpy as np
@@ -58,6 +59,9 @@ class InfeasibilityData:
         spaces = " " * len(var_name)
 
         replacers = [
+            lambda s: html.escape(
+                s
+            ),  # Protect HTML special characters (except le & ge, which are handled after this function call)
             lambda s: s.replace("<=", " &le;"),  # Spaced to maintain alignment
             lambda s: s.replace(">=", " &ge;"),
         ]
@@ -763,6 +767,7 @@ class InfeasibilityReportWidget(QMainWindow):
     def _display_constraint_details(self, constraint_data):
         """Display detailed information about a constraint."""
         lines = constraint_data.get_formatted_display()
+        # lines = [html.escape(line) for line in lines]  # Protect HTML special characters
 
         # Create formatted text
         text = "<br>".join(lines)
