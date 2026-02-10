@@ -64,6 +64,8 @@ class Tokenizer:
                 self._read_identifier()
             elif self._try_read_relational():
                 pass  # Relational operator was consumed
+            elif self._try_read_power_operator():
+                pass  # Power operator ** was consumed
             elif char in self.OPERATORS:
                 self.tokens.append(
                     Token(TokenType.OPERATOR, char, self.pos, self.pos + 1)
@@ -168,4 +170,15 @@ class Tokenizer:
             self.pos += 1
             return True
 
+        return False
+
+    def _try_read_power_operator(self) -> bool:
+        """Try to read a power operator (**). Returns True if successful."""
+        start = self.pos
+        if self.pos + 1 < len(self.expression):
+            two_char = self.expression[self.pos : self.pos + 2]
+            if two_char == "**":
+                self.tokens.append(Token(TokenType.OPERATOR, "**", start, start + 2))
+                self.pos += 2
+                return True
         return False

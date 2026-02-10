@@ -118,7 +118,11 @@ class Parser:
 
         while True:
             token = self._current()
-            if token and token.type == TokenType.OPERATOR and token.value == "^":
+            if (
+                token
+                and token.type == TokenType.OPERATOR
+                and token.value in ["^", "**"]
+            ):
                 op_token = self._consume()
                 operators.append(op_token.value)
                 operands.append(self._parse_unary())
@@ -241,7 +245,7 @@ class Parser:
             node = MultiplyNode(operands=operands)
         elif op == "/":
             node = DivideNode(operands=operands)
-        elif op == "^":
+        elif op in ["^", "**"]:
             node = PowerNode(operands=operands)
         else:
             raise ValueError(f"Unknown operator: {op}")
