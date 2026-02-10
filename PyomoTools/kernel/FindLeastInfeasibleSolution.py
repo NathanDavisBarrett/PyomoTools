@@ -454,6 +454,37 @@ def TestSolverResult(
         raise Exception(message)
 
 
+def DeactivateViolatedConstraint(constraint: pmo.constraint, tolerance: float = 1e-6):
+    if not constraint.active:
+        return
+
+    val = pmo.value(constraint.body)
+    if (constraint.lower is not None) and (val < constraint.lower - tolerance):
+        constraint.deactivate()
+    elif (constraint.upper is not None) and (val > constraint.upper + tolerance):
+        constraint.deactivate()
+
+
+def DeactivateViolatedConstraints(model: pmo.block, tolerance: float = 1e-6):
+    for c in model.children():
+        if isinstance(c, (pmo.constraint_list, pmo.constraint_tuple)):
+            for i in range(len(c)):
+                DeactivateViolatedConstraint(c[i], tolerance)
+        elif isinstance(c, pmo.constraint_dict):
+            for i in c:
+                DeactivateViolatedConstraint(c[i], tolerance)
+        elif isinstance(c, pmo.constraint):
+            DeactivateViolatedConstraint(c, tolerance)
+        elif isinstance(c, (pmo.block_list, pmo.block_tuple)):
+            for i in range(len(c)):
+                DeactivateViolatedConstraints(c[i])
+        elif isinstance(c, pmo.block_dict):
+            for i in c:
+                DeactivateViolatedConstraints(c[i])
+        elif isinstance(c, pmo.block):
+            DeactivateViolatedConstraints(c)
+
+
 def FindLeastInfeasibleSolution(
     originalModel: pmo.block,
     solver,
@@ -462,6 +493,7 @@ def FindLeastInfeasibleSolution(
     solver_kwargs: dict = {},
     relax_only_these_constraints: list = None,
     retry_original_objective: bool = False,
+    deactivate_violated_constraints: bool = False,
     **kwargs,
 ):
     """
@@ -493,8 +525,15 @@ def FindLeastInfeasibleSolution(
         If provided, only these constraints (constraint, constraint_list, block, block_list, etc. objects OR similar variable sets (bounds will be relaxed)) will be relaxed in the augmented model. Otherwise, all constraints will be relaxed.
     retry_original_objective: bool (optional, Default = False)
         If True, after finding the degree of least infeasibility, using the leastInfeasibleDefinition, this degree will be fixed as a constraint. At this point the original objective will be re-activated and the solver will attempt to solve the slightly relaxed model to optimality.
+    deactivate_violated_constraints: bool (optional, Default = False)
+        If True, after finding the least infeasible solution, any constraints that are still violated will be deactivated in the original model. This can be useful if you'd like to quickly get a feasible model by removing problematic constraints.
     **kwargs: dict
         Other keyword arguments as needed by the leastInfeasibleDefinition
+
+    Returns:
+    --------
+    augmentedModel: pmo.block
+        The augmented model that was solved to find the least infeasible solution.
     """
 
     # Step 1: Augment the model
@@ -584,3 +623,9 @@ def FindLeastInfeasibleSolution(
 
     # Step 7: Copy the solution from the augmented model back to the original model.
     CopySolution(augmentedModel, originalModel)
+
+    # Step 8 (optional): Deactivate any violated constraints in the original model.
+    if deactivate_violated_constraints:
+        DeactivateViolatedConstraints(originalModel)
+
+    return augmentedModel
