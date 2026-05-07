@@ -35,12 +35,18 @@ class OrOperator(_Formulation):
             ["B", "C", "A"], {"A": (A, (0, 1)), "B": (B, (0, 1)), "C": (C, (0, 1))}
         )
 
-        self.registerConstraint(
-            lambda B, C, A: A <= B + C,
-        )
-        self.registerConstraint(
-            lambda B, C, A: A >= B,
-        )
-        self.registerConstraint(
-            lambda B, C, A: A >= C,
-        )
+        self.registerConstraint(self._constraint_A_leq_B_plus_C)
+        self.registerConstraint(self._constraint_A_geq_B)
+        self.registerConstraint(self._constraint_A_geq_C)
+
+    @staticmethod
+    def _constraint_A_leq_B_plus_C(B, C, A):
+        return A <= B + C
+
+    @staticmethod
+    def _constraint_A_geq_B(B, C, A):
+        return A >= B
+
+    @staticmethod
+    def _constraint_A_geq_C(B, C, A):
+        return A >= C

@@ -84,12 +84,23 @@ class ConditionalGeq(_Formulation):
             Amin <= Amax - epsilon
         ), "The minimum bound of A must be less than or equal to the maximum bound of A minus epsilon."
 
+        self.alpha = alpha
+        self.epsilon = epsilon
+        self.Amin = Amin
+        self.Amax = Amax
+
+        self.registerConstraint(self.UpperBound, name="UpperBound")
         self.registerConstraint(
-            lambda A, X: X * (alpha - Amin) <= A - Amin, name="UpperBound"
-        )
-        self.registerConstraint(
-            lambda A, X: X * (Amax - (alpha - epsilon)) >= A - (alpha - epsilon),
+            self.LowerBound,
             name="LowerBound",
+        )
+
+    def UpperBound(self, A, X):
+        return X * (self.alpha - self.Amin) <= A - self.Amin
+
+    def LowerBound(self, A, X):
+        return X * (self.Amax - (self.alpha - self.epsilon)) >= A - (
+            self.alpha - self.epsilon
         )
 
     def GetBounds(self, A, A_bounds) -> Tuple[float, float]:

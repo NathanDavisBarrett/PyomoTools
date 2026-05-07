@@ -35,12 +35,18 @@ class AndOperator(_Formulation):
             ["B", "C", "A"], {"A": (A, (0, 1)), "B": (B, (0, 1)), "C": (C, (0, 1))}
         )
 
-        self.registerConstraint(
-            lambda B, C, A: A >= B + C - 1,
-        )
-        self.registerConstraint(
-            lambda B, C, A: A <= B,
-        )
-        self.registerConstraint(
-            lambda B, C, A: A <= C,
-        )
+        self.registerConstraint(self.C1)
+        self.registerConstraint(self.C2)
+        self.registerConstraint(self.C3)
+
+    @staticmethod
+    def C1(B, C, A):
+        return A >= B + C - 1
+
+    @staticmethod
+    def C2(B, C, A):
+        return A <= B
+
+    @staticmethod
+    def C3(B, C, A):
+        return A <= C

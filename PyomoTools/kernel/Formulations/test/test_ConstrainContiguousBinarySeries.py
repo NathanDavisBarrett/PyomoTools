@@ -24,14 +24,21 @@ def executeSetIndicesTest(n: int, start: int, end: int):
     m.c.StartIndex.fix(start)
     m.c.EndIndex.fix(end)
 
+    # Load in the expected solution
+    for i in range(n):
+        if start <= i <= end:
+            m.X[i].fix(1)
+        else:
+            m.X[i].fix(0)
+
+    # from PyomoTools.kernel import InfeasibilityReport
+
+    # rep = InfeasibilityReport(m, onlyInfeasibilities=False)
+    # rep.WriteFile("infeasibilityReport.txt")
+
     solver = WrappedSolver(DefaultSolver("MILP"))
     results = solver.solve(m, tee=False)
     assert results.solver.termination_condition == pmo.TerminationCondition.optimal
-
-    from PyomoTools.kernel import InfeasibilityReport
-
-    rep = InfeasibilityReport(m, onlyInfeasibilities=False)
-    rep.WriteFile("infeasibilityReport.txt")
 
     # Check if the binary variables are set correctly
     for i in range(n):

@@ -51,8 +51,8 @@ class MaxOperator(_Formulation):
         super().__init__(vars, varInfo)
 
         if not allowMaximizationPotential:
-            self.registerConstraint(lambda B, C, A: A >= B)
-            self.registerConstraint(lambda B, C, A: A >= C)
+            self.registerConstraint(self._constraint_A_geq_B)
+            self.registerConstraint(self._constraint_A_geq_C)
 
         else:
             if Y is None:
@@ -60,25 +60,33 @@ class MaxOperator(_Formulation):
 
                 self.originalVariables[3] = self.Y
 
-            bigM = np.max(
+            self.bigM = np.max(
                 [np.abs(bBounds[1] - cBounds[0]), np.abs(cBounds[1] - bBounds[0])]
             )  # The maximum difference between B and C
 
-            self.registerConstraint(
-                lambda B, C, A, Y, M=bigM: B - C <= M * Y,
-            )
-            self.registerConstraint(
-                lambda B, C, A, Y, M=bigM: C - B <= M * (1 - Y),
-            )
-            self.registerConstraint(
-                lambda B, C, A, Y: A >= B,
-            )
-            self.registerConstraint(
-                lambda B, C, A, Y: A >= C,
-            )
-            self.registerConstraint(
-                lambda B, C, A, Y, M=bigM: A <= B + M * (1 - Y),
-            )
-            self.registerConstraint(
-                lambda B, C, A, Y, M=bigM: A <= C + M * Y,
-            )
+            self.registerConstraint(self._constraint_B_minus_C_leq_MY)
+            self.registerConstraint(self._constraint_C_minus_B_leq_M_minus_MY)
+            self.registerConstraint(self._constraint_A_geq_B)
+            self.registerConstraint(self._constraint_A_geq_C)
+            self.registerConstraint(self._constraint_A_leq_B_plus_M_minus_MY)
+            self.registerConstraint(self._constraint_A_leq_C_plus_MY)
+
+    @staticmethod
+    def _constraint_A_geq_B(B, C, A, *args):
+        return A >= B
+
+    @staticmethod
+    def _constraint_A_geq_C(B, C, A, *args):
+        return A >= C
+
+    def _constraint_B_minus_C_leq_MY(self, B, C, A, Y):
+        return B - C <= self.bigM * Y
+
+    def _constraint_C_minus_B_leq_M_minus_MY(self, B, C, A, Y):
+        return C - B <= self.bigM * (1 - Y)
+
+    def _constraint_A_leq_B_plus_M_minus_MY(self, B, C, A, Y):
+        return A <= B + self.bigM * (1 - Y)
+
+    def _constraint_A_leq_C_plus_MY(self, B, C, A, Y):
+        return A <= C + self.bigM * Y

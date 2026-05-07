@@ -75,13 +75,20 @@ class GurobiPersistent_WithImplicitLazyConstraints(GurobiPersistent):
         seen_vars = set()
         for comp in relevant_components:
             if isinstance(comp, pyo.Var):
-                for var_data in comp.values():
-                    if id(var_data) not in seen_vars:
+                # Handle both SimpleVar and IndexedVar
+                if comp.is_indexed():
+                    for var_data in comp.values():
                         seen_vars.add(id(var_data))
                         gurobi_var = self._pyomo_var_to_solver_var_map.get(var_data)
                         if gurobi_var is not None:
                             self.relevant_gurobi_variables.append(gurobi_var)
                             self.relevant_pyomo_variables.append(var_data)
+                else:
+                    seen_vars.add(id(comp))
+                    gurobi_var = self._pyomo_var_to_solver_var_map.get(comp)
+                    if gurobi_var is not None:
+                        self.relevant_gurobi_variables.append(gurobi_var)
+                        self.relevant_pyomo_variables.append(comp)
             elif isinstance(comp, pyo.Constraint):
                 for con_data in comp.values():
                     for var in identify_variables(con_data.expr):

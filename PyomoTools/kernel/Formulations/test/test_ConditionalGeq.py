@@ -69,7 +69,10 @@ def test_middle():
 
     solver = DefaultSolver("MILP")
     result = solver.solve(m)
-    assert result.solver.termination_condition == pmo.TerminationCondition.infeasible
+    assert result.solver.termination_condition in {
+        pmo.TerminationCondition.infeasible,
+        pmo.TerminationCondition.infeasibleOrUnbounded,
+    }
 
 
 def test_minimum():

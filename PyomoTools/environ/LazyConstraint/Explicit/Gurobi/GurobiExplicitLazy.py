@@ -23,11 +23,17 @@ class GurobiPersistent_WithExplicitLazyConstraints(GurobiPersistent):
         """Find and mark all explicitly provided lazy constraints."""
         if lazy_constraints is None:
             return
+        # Wrap in a list if it's a single component so we can iterate
+        if not isinstance(lazy_constraints, list):
+            lazy_constraints = [lazy_constraints]
+
         for con in lazy_constraints:
-            if isinstance(con, pyo.Constraint):
+            # Check if it's an IndexedComponent (has values() method)
+            if hasattr(con, "values"):
                 for con_data in con.values():
                     self._label_lazy_constraint(con_data)
             else:
+                # It's a SimpleConstraint or a single ConstrData
                 self._label_lazy_constraint(con)
 
     def set_instance(self, model, lazy_constraints=None, **kwds):

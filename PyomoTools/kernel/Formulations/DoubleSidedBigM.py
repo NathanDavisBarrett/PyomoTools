@@ -62,21 +62,28 @@ class DoubleSidedBigM(_Formulation):
             },
         )
 
+        self.Bmin = Bmin
+        self.Bmax = Bmax
+
         if includeLowerBounds:
-            self.registerConstraint(
-                lambda B, X, A, C: A >= Bmin * X + C, name="LowerBound0"
-            )
-            self.registerConstraint(
-                lambda B, X, A, C: A >= B + Bmax * (X - 1) + C, name="LowerBound1"
-            )
+            self.registerConstraint(self.LowerBound0, name="LowerBound0")
+            self.registerConstraint(self.LowerBound1, name="LowerBound1")
 
         if includeUpperBounds:
-            self.registerConstraint(
-                lambda B, X, A, C: A <= Bmax * X + C, name="UpperBound0"
-            )
-            self.registerConstraint(
-                lambda B, X, A, C: A <= B + Bmin * (X - 1) + C, name="UpperBound1"
-            )
+            self.registerConstraint(self.UpperBound0, name="UpperBound0")
+            self.registerConstraint(self.UpperBound1, name="UpperBound1")
+
+    def LowerBound0(self, B, X, A, C):
+        return A >= self.Bmin * X + C
+
+    def LowerBound1(self, B, X, A, C):
+        return A >= B + self.Bmax * (X - 1) + C
+
+    def UpperBound0(self, B, X, A, C):
+        return A <= self.Bmax * X + C
+
+    def UpperBound1(self, B, X, A, C):
+        return A <= B + self.Bmin * (X - 1) + C
 
     def Setup(self):
         super().Setup()
