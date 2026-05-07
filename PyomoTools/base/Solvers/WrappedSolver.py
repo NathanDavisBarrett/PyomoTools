@@ -39,6 +39,7 @@ class WrappedSolver:
         model,
         *args,
         relax_only_these_constraints: list = None,
+        enforce_only_these_constraints: list = None,
         retry_original_objective=False,
         exception: bool = None,
         warn: bool = True,
@@ -59,6 +60,7 @@ class WrappedSolver:
                 solver_args=args,
                 solver_kwargs=kwargs,
                 relax_only_these_constraints=relax_only_these_constraints,
+                enforce_only_these_constraints=enforce_only_these_constraints,
                 retry_original_objective=retry_original_objective,
             )
             if self.solutionJsonFileName is not None:

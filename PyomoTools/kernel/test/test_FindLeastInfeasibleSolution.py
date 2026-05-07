@@ -333,6 +333,224 @@ def test_PartialRelaxation_StillInfeasible():
         assert "subset of constraints were relaxed" in str(e)
 
 
+def test_EnforceOnlySpecificConstraint():
+    """Test enforcing only specific constraints while keeping others relaxed."""
+    model = pmo.block()
+    model.x = pmo.variable()
+    model.y = pmo.variable()
+
+    # Create multiple constraints, only one is infeasible
+    model.c1 = pmo.constraint(expr=model.x >= 0)  # Feasible
+    model.c2 = pmo.constraint(expr=model.y >= 0)  # Feasible
+    model.c3 = pmo.constraint(expr=model.x + model.y <= -1)  # Infeasible
+
+    # Enforce only c1 and c2 (and bounds), so c3 is relaxed
+    FindLeastInfeasibleSolution(
+        model,
+        DefaultSolver("LP"),
+        enforce_only_these_constraints=[model.c1, model.c2, model.x, model.y],
+        tee=True,
+    )
+
+    xVal = pmo.value(model.x)
+    yVal = pmo.value(model.y)
+
+    # x and y should still respect their bounds (>= 0)
+    assert xVal >= -0.000001
+    assert yVal >= -0.000001
+
+
+def test_EnforceOnlyVariableBounds():
+    """Test enforcing only specific variable bounds."""
+    model = pmo.block()
+    model.x = pmo.variable(lb=0)
+    # Create a constraint that forces x to be negative
+    model.c1 = pmo.constraint(expr=model.x <= -1)
+
+    # Enforce only x's bounds, not the constraint
+    FindLeastInfeasibleSolution(
+        model, DefaultSolver("LP"), enforce_only_these_constraints=[model.x], tee=True
+    )
+
+    xVal = pmo.value(model.x)
+
+    # x should satisfy the bound (x >= 0) and ignore the constraint
+    assert xVal >= -0.000001
+
+
+def test_EnforceConstraintList():
+    """Test enforcing an entire constraint_list."""
+    model = pmo.block()
+    model.x = pmo.variable_list([pmo.variable(lb=0) for i in range(3)])
+
+    model.c = pmo.constraint_list(
+        [
+            pmo.constraint(model.x[0] <= -1),
+            pmo.constraint(model.x[1] <= -1),
+            pmo.constraint(model.x[2] <= -1),
+        ]
+    )
+
+    # Enforce only the variable bounds
+    FindLeastInfeasibleSolution(
+        model, DefaultSolver("LP"), enforce_only_these_constraints=[model.x], tee=True
+    )
+
+    for i in range(3):
+        xVal = pmo.value(model.x[i])
+        # Should find a solution respecting variable bounds (>= 0)
+        assert xVal >= -0.000001
+
+
+def test_EnforceVariableList():
+    """Test enforcing bounds on an entire variable_list."""
+    model = pmo.block()
+    model.x = pmo.variable_list([pmo.variable(lb=0) for i in range(3)])
+
+    model.c = pmo.constraint_list([pmo.constraint(model.x[i] <= -1) for i in range(3)])
+
+    # Enforce only the constraints
+    FindLeastInfeasibleSolution(
+        model, DefaultSolver("LP"), enforce_only_these_constraints=[model.c], tee=True
+    )
+
+    for i in range(3):
+        xVal = pmo.value(model.x[i])
+        # Should satisfy constraints (x[i] <= -1)
+        assert xVal <= -1 + 0.000001
+
+
+def test_EnforceSpecificBlock():
+    """Test enforcing all constraints within a specific sub-block."""
+    model = pmo.block()
+    model.x = pmo.variable(lb=0)
+    model.sub = pmo.block()
+    model.sub.y = pmo.variable(lb=0)
+
+    # Constraint in main block
+    model.c1 = pmo.constraint(expr=model.x >= 5)
+
+    # Infeasible constraint in sub-block
+    model.sub.c1 = pmo.constraint(expr=model.sub.y <= -1)
+
+    # Enforce only the main block
+    FindLeastInfeasibleSolution(
+        model,
+        DefaultSolver("LP"),
+        enforce_only_these_constraints=[model.x, model.c1],
+        tee=True,
+    )
+
+    xVal = pmo.value(model.x)
+    yVal = pmo.value(model.sub.y)
+
+    # x should satisfy its enforced constraint
+    assert xVal >= 5 - 0.000001
+
+
+def test_EnforceMultipleSpecificConstraints():
+    """Test enforcing multiple specific constraints."""
+    model = pmo.block()
+    model.x = pmo.variable()
+    model.y = pmo.variable()
+    model.z = pmo.variable(lb=0)
+
+    model.c1 = pmo.constraint(expr=model.x >= 10)
+    model.c2 = pmo.constraint(expr=model.y <= -10)
+    model.c3 = pmo.constraint(expr=model.x + model.y == 0)
+
+    # Enforce c3 and z
+    FindLeastInfeasibleSolution(
+        model,
+        DefaultSolver("LP"),
+        enforce_only_these_constraints=[model.c3, model.z],
+        tee=True,
+    )
+
+    xVal = pmo.value(model.x)
+    yVal = pmo.value(model.y)
+
+    # c3 should still be satisfied
+    assert np.allclose(xVal + yVal, 0, atol=1e-5)
+
+
+def test_EnforceMixedConstraintsAndBounds():
+    """Test enforcing a mix of constraints and variable bounds."""
+    model = pmo.block()
+    model.x = pmo.variable(lb=0, ub=1)
+    model.y = pmo.variable(lb=0)
+
+    model.c1 = pmo.constraint(expr=model.x + model.y >= 5)
+    model.c2 = pmo.constraint(expr=model.x <= -1)
+
+    # Enforce c1 and y
+    FindLeastInfeasibleSolution(
+        model,
+        DefaultSolver("LP"),
+        enforce_only_these_constraints=[model.c1, model.y],
+        tee=True,
+    )
+
+    xVal = pmo.value(model.x)
+    yVal = pmo.value(model.y)
+
+    # c1 should still be satisfied (enforced)
+    assert xVal + yVal >= 5 - 0.000001
+
+    # y's bounds were enforced
+    assert yVal >= -0.000001
+
+
+def test_EnforceBlockList():
+    """Test enforcing constraints in a block_list."""
+    model = pmo.block()
+    model.x = pmo.variable(lb=0)
+
+    model.sub = pmo.block_list()
+    for i in range(2):
+        b = pmo.block()
+        b.y = pmo.variable(lb=0)
+        b.c = pmo.constraint(expr=b.y <= -1)
+        model.sub.append(b)
+
+    model.c_main = pmo.constraint(expr=model.x >= 10)
+
+    # Enforce only the main block (x and c_main)
+    FindLeastInfeasibleSolution(
+        model,
+        DefaultSolver("LP"),
+        enforce_only_these_constraints=[model.x, model.c_main],
+        tee=True,
+    )
+
+    xVal = pmo.value(model.x)
+    # Main constraint should still be satisfied
+    assert xVal >= 10 - 0.000001
+
+
+def test_PartialEnforcement_StillInfeasible():
+    """Test that if we only enforce some constraints and the problem is still infeasible, an error is raised."""
+    model = pmo.block()
+    model.x = pmo.variable(domain=pmo.NonNegativeReals)
+
+    model.c1 = pmo.constraint(expr=model.x >= 10)
+    model.c2 = pmo.constraint(expr=model.x <= -10)
+
+    # Enforce both c1 and c2 which creates an infeasible problem
+    try:
+        FindLeastInfeasibleSolution(
+            model,
+            DefaultSolver("LP"),
+            enforce_only_these_constraints=[model.c1, model.c2],
+            tee=True,
+        )
+        # If we get here, the test should fail
+        assert False, "Expected an exception for remaining infeasibility"
+    except Exception as e:
+        # Should get an error message mentioning partial relaxation
+        assert "subset of constraints were relaxed" in str(e)
+
+
 def test_MapSpecificConstraint_SimpleConstraint():
     """Test that MapSpecificConstraint can map a simple constraint."""
     model = pmo.block()

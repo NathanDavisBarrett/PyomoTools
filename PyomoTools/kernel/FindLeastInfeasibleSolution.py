@@ -94,7 +94,46 @@ def DeactivateAllObjectives(model: pmo.block):
     return active_objs
 
 
-def AugmentModel_AllConstraints(model: pmo.block):
+def flatten_element_constraints_and_variable_names(constraints_or_vars):
+    flattened = set()
+    for c in constraints_or_vars:
+        if isinstance(c, (pmo.constraint, pmo.variable)):
+            flattened.add(c.name)
+        elif isinstance(
+            c,
+            (
+                pmo.constraint_list,
+                pmo.constraint_tuple,
+                pmo.variable_list,
+                pmo.variable_tuple,
+            ),
+        ):
+            for i in range(len(c)):
+                flattened.add(c[i].name)
+        elif isinstance(c, (pmo.constraint_dict, pmo.variable_dict)):
+            for i in c:
+                flattened.add(c[i].name)
+        elif isinstance(c, pmo.block):
+            for c1 in c.children():
+                flattened.update(flatten_element_constraints_and_variable_names([c1]))
+        elif isinstance(c, (pmo.block_list, pmo.block_tuple)):
+            for i in range(len(c)):
+                for c1 in c[i].children():
+                    flattened.update(
+                        flatten_element_constraints_and_variable_names([c1])
+                    )
+        elif isinstance(c, pmo.block_dict):
+            for i in c:
+                for c1 in c[i].children():
+                    flattened.update(
+                        flatten_element_constraints_and_variable_names([c1])
+                    )
+    return flattened
+
+
+def AugmentModel_AllConstraints(
+    model: pmo.block, enforce_only_these_constraints: list = None
+):
     # Step 1, Change all variable bounds to explicit constraints (Thus they will have their slack variables added in step 2.)
     # TODO: Recognize and change over domain types.
     # Step 2, Detect and deactivate an objectives.
@@ -103,9 +142,19 @@ def AugmentModel_AllConstraints(model: pmo.block):
     lowerBoundConstrs = deque([])
     upperBoundConstrs = deque([])
 
+    if enforce_only_these_constraints is not None:
+        enforce_only_these_constraints = flatten_element_constraints_and_variable_names(
+            enforce_only_these_constraints
+        )
+    else:
+        enforce_only_these_constraints = []
+
     for c in model.children():
         if isinstance(c, (pmo.variable_list, pmo.variable_tuple)):
             for i in range(len(c)):
+                if c[i].name in enforce_only_these_constraints:
+                    continue
+
                 lb = lowerBound(c[i])
                 if lb is not None:
                     lb_contr = pmo.constraint(lb)
@@ -126,6 +175,8 @@ def AugmentModel_AllConstraints(model: pmo.block):
                         upperBoundConstrs.append(upper)
         elif isinstance(c, pmo.variable_dict):
             for i in c:
+                if c[i].name in enforce_only_these_constraints:
+                    continue
                 lb = lowerBound(c[i])
                 if lb is not None:
                     lb_contr = pmo.constraint(lb)
@@ -145,6 +196,9 @@ def AugmentModel_AllConstraints(model: pmo.block):
                     if upper is not None:
                         upperBoundConstrs.append(upper)
         elif isinstance(c, pmo.variable):
+            if c.name in enforce_only_these_constraints:
+                continue
+
             lb = lowerBound(c)
             if lb is not None:
                 lb_contr = pmo.constraint(lb)
@@ -166,6 +220,8 @@ def AugmentModel_AllConstraints(model: pmo.block):
 
         elif isinstance(c, (pmo.constraint_list, pmo.constraint_tuple)):
             for i in range(len(c)):
+                if c[i].name in enforce_only_these_constraints:
+                    continue
                 slackVar, lower, upper = ConfigureConstraint(c[i])
                 slackVars.append(slackVar)
                 if lower is not None:
@@ -174,6 +230,8 @@ def AugmentModel_AllConstraints(model: pmo.block):
                     upperBoundConstrs.append(upper)
         elif isinstance(c, pmo.constraint_dict):
             for i in c:
+                if c[i].name in enforce_only_these_constraints:
+                    continue
                 slackVar, lower, upper = ConfigureConstraint(c[i])
                 slackVars.append(slackVar)
                 if lower is not None:
@@ -181,6 +239,8 @@ def AugmentModel_AllConstraints(model: pmo.block):
                 if upper is not None:
                     upperBoundConstrs.append(upper)
         elif isinstance(c, pmo.constraint):
+            if c.name in enforce_only_these_constraints:
+                continue
             slackVar, lower, upper = ConfigureConstraint(c)
             slackVars.append(slackVar)
             if lower is not None:
@@ -197,12 +257,18 @@ def AugmentModel_AllConstraints(model: pmo.block):
     for c in model.children():
         if isinstance(c, (pmo.block_list, pmo.block_tuple)):
             for i in range(len(c)):
-                allSlackVars.extend(AugmentModel_AllConstraints(c[i]))
+                allSlackVars.extend(
+                    AugmentModel_AllConstraints(c[i], enforce_only_these_constraints)
+                )
         elif isinstance(c, pmo.block_dict):
             for i in c:
-                allSlackVars.extend(AugmentModel_AllConstraints(c[i]))
+                allSlackVars.extend(
+                    AugmentModel_AllConstraints(c[i], enforce_only_these_constraints)
+                )
         elif isinstance(c, pmo.block):
-            allSlackVars.extend(AugmentModel_AllConstraints(c))
+            allSlackVars.extend(
+                AugmentModel_AllConstraints(c, enforce_only_these_constraints)
+            )
     return allSlackVars
 
 
@@ -268,14 +334,12 @@ def MapSpecificConstraint(originalModel, augmentedModel, relative_name):
             )
 
 
-def MapSpecificConstraints(
-    originalModel, augmentedModel, relax_only_these_constraints
-) -> list:
-    if relax_only_these_constraints is None:
+def MapSpecificConstraints(originalModel, augmentedModel, target_constraints) -> list:
+    if target_constraints is None:
         return None
 
     mapped_constraints = []
-    for target in relax_only_these_constraints:
+    for target in target_constraints:
         mapped_target = MapSpecificConstraint(
             originalModel, augmentedModel, target.name
         )
@@ -397,9 +461,12 @@ def AugmentModel_SpecificConstraints(
 def AugmentModel(
     augmentedModel: pmo.block,
     relax_only_these_constraints: list = None,
+    enforce_only_these_constraints: list = None,
 ):
     if relax_only_these_constraints is None:
-        return AugmentModel_AllConstraints(augmentedModel)
+        return AugmentModel_AllConstraints(
+            augmentedModel, enforce_only_these_constraints
+        )
     else:
         return AugmentModel_SpecificConstraints(
             augmentedModel, relax_only_these_constraints
@@ -492,6 +559,7 @@ def FindLeastInfeasibleSolution(
     solver_args: tuple = (),
     solver_kwargs: dict = {},
     relax_only_these_constraints: list = None,
+    enforce_only_these_constraints: list = None,
     retry_original_objective: bool = False,
     deactivate_violated_constraints: bool = False,
     **kwargs,
@@ -523,6 +591,8 @@ def FindLeastInfeasibleSolution(
         Any other key-word arguments to pass to the solver's solve function.
     relax_only_these_constraints: list (optional, Default = None)
         If provided, only these constraints (constraint, constraint_list, block, block_list, etc. objects OR similar variable sets (bounds will be relaxed)) will be relaxed in the augmented model. Otherwise, all constraints will be relaxed.
+    enforce_only_these_constraints: list (optional, Default = None)
+        If provided, only these constraints (constraint, constraint_list, block, block_list, etc. objects OR similar variable sets (bounds will be relaxed)) will be enforced in the augmented model. Otherwise, all constraints will be relaxed.
     retry_original_objective: bool (optional, Default = False)
         If True, after finding the degree of least infeasibility, using the leastInfeasibleDefinition, this degree will be fixed as a constraint. At this point the original objective will be re-activated and the solver will attempt to solve the slightly relaxed model to optimality.
     deactivate_violated_constraints: bool (optional, Default = False)
@@ -535,6 +605,12 @@ def FindLeastInfeasibleSolution(
     augmentedModel: pmo.block
         The augmented model that was solved to find the least infeasible solution.
     """
+    if (relax_only_these_constraints is not None) and (
+        enforce_only_these_constraints is not None
+    ):
+        raise ValueError(
+            "Cannot specify both relax_only_these_constraints and enforce_only_these_constraints. Please choose one or the other."
+        )
 
     # Step 1: Augment the model
     augmentedModel = originalModel.clone()
@@ -542,7 +618,14 @@ def FindLeastInfeasibleSolution(
     slackVars = AugmentModel(
         augmentedModel,
         relax_only_these_constraints=MapSpecificConstraints(
-            originalModel, augmentedModel, relax_only_these_constraints
+            originalModel,
+            augmentedModel,
+            relax_only_these_constraints,
+        ),
+        enforce_only_these_constraints=MapSpecificConstraints(
+            originalModel,
+            augmentedModel,
+            enforce_only_these_constraints,
         ),
     )
 
@@ -583,7 +666,11 @@ def FindLeastInfeasibleSolution(
 
     # Step 5: Solve the augmented model.
     result = solver.solve(augmentedModel, *solver_args, **solver_kwargs)
-    TestSolverResult(result, relax_only_these_constraints is None)
+    all_relaxed = (
+        relax_only_these_constraints is not None
+        and enforce_only_these_constraints is not None
+    )
+    TestSolverResult(result, all_relaxed)
 
     if leastInfeasibleDefinition == LeastInfeasibleDefinition.Sequential:
         # Fix all slack vars that are not active.
@@ -604,9 +691,7 @@ def FindLeastInfeasibleSolution(
         )
 
         result = solver.solve(augmentedModel, *solver_args, **solver_kwargs)
-        TestSolverResult(
-            result, relax_only_these_constraints is None, TerminationCondition.optimal
-        )
+        TestSolverResult(result, all_relaxed, TerminationCondition.optimal)
 
     # Step 6 (optional): Retry original objective if requested.
     if retry_original_objective:
@@ -619,7 +704,7 @@ def FindLeastInfeasibleSolution(
             obj.activate()
 
         result = solver.solve(augmentedModel, *solver_args, **solver_kwargs)
-        TestSolverResult(result, relax_only_these_constraints is None)
+        TestSolverResult(result, all_relaxed)
 
     # Step 7: Copy the solution from the augmented model back to the original model.
     CopySolution(augmentedModel, originalModel)
