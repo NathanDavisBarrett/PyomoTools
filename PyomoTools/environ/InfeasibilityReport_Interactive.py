@@ -39,7 +39,7 @@ class InfeasibilityData:
     A class to hold data for a single infeasibility.
     """
 
-    def __init__(self, name, index, constraint, visualization):
+    def __init__(self, name, index, constraint, visualization=None):
         self.name = name
         self.index = index
         self.constraint = constraint
@@ -47,6 +47,23 @@ class InfeasibilityData:
         self.is_violated = True  # Will be set properly during analysis
         self.is_active = True  # Will be set properly during analysis
         self.violation_degree = 0.0  # Will be set during analysis
+
+    def get_visualization(self):
+        if self.visualization is None:
+            try:
+                self.visualization = GenerateExpressionVisualization(
+                    self.constraint.expr
+                )
+            except ValueError as e:
+                if "value is None" in str(e) or "error" in str(e).lower():
+                    self.visualization = f"{self.constraint.expr}\n<Could not evaluate expression due to incomplete variable values>"
+                else:
+                    raise e
+            except Exception as e:
+                self.visualization = (
+                    f"{self.constraint.expr}\n<Error evaluating constraint: {str(e)}>"
+                )
+        return self.visualization
 
     def get_display_name(self):
         if self.index is not None:
@@ -69,7 +86,7 @@ class InfeasibilityData:
                 s = func(s)
             return s
 
-        visualization_lines = self.visualization.split("\n")
+        visualization_lines = self.get_visualization().split("\n")
 
         result = []
         for j in range(len(visualization_lines)):
@@ -207,7 +224,7 @@ class InfeasibilityReportWidget(QMainWindow):
         from PyQt5.QtWidgets import QLineEdit
 
         self.filter_textbox = QLineEdit()
-        self.filter_textbox.setPlaceholderText("Filter by visualization text...")
+        self.filter_textbox.setPlaceholderText("Filter by expression text...")
         self.filter_textbox.textChanged.connect(self._on_filter_text_changed)
         control_layout.addWidget(self.filter_textbox)
 
@@ -274,26 +291,10 @@ class InfeasibilityReportWidget(QMainWindow):
     def _process_constraint(self, constraint, name, index):
         is_active = constraint.active
 
-        try:
-            visualization = GenerateExpressionVisualization(constraint.expr)
-            is_feasible, violation_degree = self._test_feasibility(constraint)
-            violated = not is_feasible
-        except ValueError as e:
-            if "value is None" in str(e) or "error" in str(e).lower():
-                visualization = f"{constraint.expr}\n<Could not evaluate expression due to incomplete variable values>"
-                violated = True
-                violation_degree = 0.0
-            else:
-                raise e
-        except Exception as e:
-            # Fallback for unexpected failures in generating expression view or feasibility
-            visualization = (
-                f"{constraint.expr}\n<Error evaluating constraint: {str(e)}>"
-            )
-            violated = True
-            violation_degree = 0.0
+        is_feasible, violation_degree = self._test_feasibility(constraint)
+        violated = not is_feasible
 
-        infeas_data = InfeasibilityData(name, index, constraint, visualization)
+        infeas_data = InfeasibilityData(name, index, constraint, None)
         infeas_data.is_violated = violated
         infeas_data.is_active = is_active
         infeas_data.violation_degree = violation_degree
