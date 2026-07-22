@@ -1,4 +1,5 @@
-from ..PWL1D import PWL1D, PWL1DParameters
+from ..PWL1D import PWL1D
+from ....base.Formulations.PWL1D import PWL1DParameters
 
 import pyomo.kernel as pmo
 from ....base.Solvers import DefaultSolver

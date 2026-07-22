@@ -116,6 +116,45 @@ class PWL1DParameters:
         self.points.sort(key=lambda pt: pt[0])
         if not (self.includeLB_y or self.includeUB_y):
             raise ValueError("At least one of includeLB_y or includeUB_y must be True.")
+        self._eliminate_colinear_points()
+
+    def _eliminate_colinear_points(self):
+        if len(self.points) < 3:
+            return  # No colinear points to eliminate
+
+        filtered_points = [self.points[0]]  # Always keep the first point
+
+        for i in range(1, len(self.points) - 1):
+            p1 = self.points[i - 1]
+            p2 = self.points[i]
+            p3 = self.points[i + 1]
+
+            # Check if p2 is colinear with p1 and p3
+            cross_product = (p2[0] - p1[0]) * (p3[1] - p1[1]) - (p3[0] - p1[0]) * (
+                p2[1] - p1[1]
+            )
+            if abs(cross_product) > 1e-6:  # Not colinear
+                filtered_points.append(p2)
+
+        filtered_points.append(self.points[-1])  # Always keep the last point
+        self.points = filtered_points
+
+    @cached_property
+    def _point_box(self) -> tuple[tuple[float, float], tuple[float, float]]:
+        x_lb = None
+        x_ub = None
+        y_lb = None
+        y_ub = None
+        for point in self.points:
+            if x_lb is None or point[0] < x_lb:
+                x_lb = point[0]
+            if x_ub is None or point[0] > x_ub:
+                x_ub = point[0]
+            if y_lb is None or point[1] < y_lb:
+                y_lb = point[1]
+            if y_ub is None or point[1] > y_ub:
+                y_ub = point[1]
+        return (x_lb, x_ub), (y_lb, y_ub)
 
     @classmethod
     def from_progressive_slopes(

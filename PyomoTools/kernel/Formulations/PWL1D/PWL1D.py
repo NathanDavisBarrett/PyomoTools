@@ -1,4 +1,4 @@
-from ...base.Formulations.PWL1D import PWL1DParameters, PWL1DType
+from ....base.Formulations.PWL1D import PWL1DParameters, PWL1DType
 
 from typing import Union
 
